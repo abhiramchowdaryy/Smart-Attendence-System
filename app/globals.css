@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ════════════════════════════════════════════════════════════════════
+   PES Smart Attendance — Design Tokens
+   Three-layer architecture: PRIMITIVE → SEMANTIC → COMPONENT
+   Semantic layer is expressed as HSL triplets for Tailwind/shadcn
+   compatibility (hsl(var(--primary))) and dark-mode switching.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── LAYER 1 · PRIMITIVES (PES brand + raw scale) ─────────────────── */
+:root {
+  /* PES University brand — sampled from the Phase-1 deck */
+  --pes-navy: 224 64% 33%;        /* #1E3A8A — logo wordmark        */
+  --pes-navy-bright: 226 71% 40%; /* #1E40AF — interactive primary  */
+  --pes-navy-deep: 226 57% 21%;   /* #172554                        */
+  --pes-orange: 27 79% 54%;       /* #E8792B — logo compass, rules  */
+  --pes-amber-aa: 32 95% 44%;     /* #D97706 — WCAG-AA CTA amber    */
+
+  /* Neutrals (slate ramp) */
+  --slate-50: 210 40% 98%;
+  --slate-100: 213 42% 94%;
+  --slate-200: 214 88% 93%;   /* blue-tinted border #DBEAFE */
+  --slate-500: 215 16% 47%;
+  --slate-700: 215 25% 27%;
+  --slate-900: 222 47% 11%;
+
+  /* Status primitives */
+  --green-600: 142 76% 36%;   /* #16A34A */
+  --amber-600: 32 95% 44%;    /* #D97706 */
+  --red-600: 0 72% 51%;       /* #DC2626 */
+  --cyan-600: 192 91% 36%;    /* #0891B2 */
+
+  /* Motion + shape */
+  --radius: 0.75rem;
+  --motion-fast: 150ms;
+  --motion-base: 220ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── LAYER 2 · SEMANTIC (light theme) ─────────────────────────────── */
+:root {
+  --background: var(--slate-50);
+  --foreground: var(--slate-900);
+
+  --card: 0 0% 100%;
+  --card-foreground: var(--slate-900);
+
+  --primary: var(--pes-navy-bright);
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: var(--slate-100);
+  --secondary-foreground: var(--slate-700);
+
+  --accent: var(--pes-amber-aa);
+  --accent-foreground: 0 0% 100%;
+
+  --muted: var(--slate-100);
+  --muted-foreground: var(--slate-500);
+
+  --destructive: var(--red-600);
+  --destructive-foreground: 0 0% 100%;
+
+  --border: var(--slate-200);
+  --input: var(--slate-200);
+  --ring: var(--pes-navy-bright);
+
+  /* Attendance status — pair with icon + text, never color alone */
+  --status-present: var(--green-600);
+  --status-late: var(--amber-600);
+  --status-absent: var(--red-600);
+  --status-partial: var(--cyan-600);
+}
+
+/* ── LAYER 2 · SEMANTIC (dark theme overrides) ────────────────────── */
+.dark {
+  --background: 220 49% 8%;      /* #0B1220 */
+  --foreground: 214 32% 91%;     /* #E2E8F0 */
+
+  --card: 221 50% 13%;           /* #111C33 */
+  --card-foreground: 214 32% 91%;
+
+  --primary: 217 91% 60%;        /* #3B82F6 — brightened for contrast */
+  --primary-foreground: 222 47% 11%;
+
+  --secondary: 220 40% 18%;
+  --secondary-foreground: 214 32% 91%;
+
+  --muted: 219 41% 19%;          /* #1C2A44 */
+  --muted-foreground: 215 20% 65%;
+
+  --border: 216 37% 23%;         /* #24354F */
+  --input: 216 37% 23%;
+  --ring: 217 91% 60%;
+
+  --status-present: 142 71% 45%; /* #22C55E — brightened */
+}
+
+/* ── LAYER 3 · COMPONENT tokens ───────────────────────────────────── */
+:root {
+  --kpi-card-padding: 1rem;
+  --face-ring-ok: hsl(var(--status-present));
+  --face-ring-wait: hsl(var(--status-late));
+  --geo-chip-inside: hsl(var(--status-present));
+  --geo-chip-outside: hsl(var(--status-absent));
+  --geo-chip-seeking: hsl(var(--status-late));
+}
+
+/* ── Base styles ──────────────────────────────────────────────────── */
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight;
+  }
+  /* Keyboard focus must always be visible */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

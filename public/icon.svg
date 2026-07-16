@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="PES Smart Attendance">
+  <rect width="512" height="512" rx="96" fill="#1E3A8A"/>
+  <!-- compass ring (nod to the PES logo) -->
+  <circle cx="256" cy="236" r="120" fill="none" stroke="#E8792B" stroke-width="28"/>
+  <!-- compass needle -->
+  <path d="M256 136 L292 236 L256 336 L220 236 Z" fill="#FFFFFF"/>
+  <!-- check mark base bar = attendance -->
+  <path d="M156 408 L226 408 L256 444 L286 408 L356 408" fill="none" stroke="#E8792B" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
