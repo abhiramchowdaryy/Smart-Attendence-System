@@ -13,15 +13,19 @@ interface NavItem {
 const NAV: Record<Role, NavItem[]> = {
   student: [
     { href: "/student/dashboard", label: "Dashboard" },
+    { href: "/student/attendance", label: "My Attendance" },
     { href: "/student/mark-attendance", label: "Mark Attendance" },
   ],
   faculty: [
     { href: "/faculty/dashboard", label: "Dashboard" },
+    { href: "/faculty/attendance", label: "Attendance" },
     { href: "/faculty/marks", label: "Marks" },
     { href: "/faculty/performance", label: "Performance" },
   ],
   admin: [
     { href: "/admin/dashboard", label: "Dashboard" },
+    { href: "/admin/attendance", label: "Attendance" },
+    { href: "/faculty/attendance", label: "By course" },
     { href: "/faculty/marks", label: "Marks" },
     { href: "/faculty/performance", label: "Performance" },
   ],

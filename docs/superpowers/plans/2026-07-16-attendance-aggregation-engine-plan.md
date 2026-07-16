@@ -6,11 +6,17 @@
 
 Each step lists the files touched and its own verification. Steps are ordered so the DB and logic layer are proven before any UI is built.
 
+> **Progress (2026-07-16):** Steps 1–3 complete and verified against the dev
+> Supabase project `Smart Attendance`. Migrations live in
+> `supabase/migrations/0001_*` and `0002_*` (numbered from the `schema.sql`
+> baseline, not `0002/0003` as originally sketched below). Step 4 (seed) is
+> blocked on real course codes/credits.
+
 ---
 
-## Step 1 — Schema migration: `courses`, `enrollments`, FKs
+## Step 1 — Schema migration: `courses`, `enrollments`, FKs — ✅ DONE
 
-**Files:** `supabase/migrations/0002_courses_enrollments.sql` (new)
+**Files:** `supabase/migrations/0001_courses_enrollments.sql`
 
 1. `create table public.courses (code pk, name, credits, semester, created_at)`.
 2. Backfill: `insert into courses (code, name, credits, semester) select distinct course, course, 0, 'Unknown' from sessions ... on conflict do nothing;` (placeholder name = code).
@@ -25,9 +31,9 @@ Each step lists the files touched and its own verification. Steps are ordered so
 
 ---
 
-## Step 2 — `attendance_summary` view
+## Step 2 — `attendance_summary` view — ✅ DONE
 
-**Files:** `supabase/migrations/0003_attendance_summary_view.sql` (new)
+**Files:** `supabase/migrations/0002_attendance_summary_view.sql`
 
 - `create view public.attendance_summary with (security_invoker = true) as ...`
 - Per `(student_id, course_code)`: join `enrollments → sessions` (closed, `opened_at >= enrolled_at`) `LEFT JOIN attendance`.
@@ -38,9 +44,13 @@ Each step lists the files touched and its own verification. Steps are ordered so
 
 ---
 
-## Step 3 — Logic layer `lib/attendance.ts` + tests
+## Step 3 — Logic layer `lib/attendance.ts` + tests — ✅ DONE
 
-**Files:** `lib/attendance.ts` (new), `lib/attendance.test.ts` (new)
+**Files:** `lib/attendance.ts`, `lib/attendance.test.ts`
+
+Tests run with `node --test lib/attendance.test.ts` (Node built-in runner +
+native TS type-stripping; no test-framework dependency). 10/10 pass.
+`tsc --noEmit` deferred to the Step 8 build gate (needs `npm install`).
 
 - Constants `ELIGIBILITY_THRESHOLD = 75`, `STATUS_WEIGHTS`.
 - Pure helpers: `isEligible`, `formatPct`, `summarizeStudent`.
@@ -74,9 +84,12 @@ Sem-4 courses from the reference portal (credits are placeholders until confirme
 
 ---
 
-## Step 5 — Student "My Attendance" surface
+## Step 5 — Student "My Attendance" surface — ✅ DONE
 
-**Files:** `app/student/dashboard/page.tsx` (extend) or new `app/student/attendance/page.tsx`; shared UI in `components/`
+**Files:** `app/student/attendance/page.tsx` (new), `components/eligibility-badge.tsx`
+(new), `components/app-shell.tsx` (nav link). Verified live via Playwright/Chromium
+(logged in as student@pes.edu) in both light and dark themes; data matches the seed
+(Personality Development 26/34 = 76.47%, 2 shortfalls). `tsc` + `next build` clean.
 
 - Semester dropdown from the student's enrolled semesters.
 - Per-course rows (code · name · attended/conducted · official % · weighted % · eligibility badge), design baked in per spec §8.
@@ -86,30 +99,42 @@ Sem-4 courses from the reference portal (credits are placeholders until confirme
 
 ---
 
-## Step 6 — Faculty course report
+## Step 6 — Faculty course report — ✅ DONE
 
-**Files:** `app/faculty/attendance/page.tsx` (new) + action
+**Files:** `app/faculty/attendance/page.tsx` (new), nav link in `app/../app-shell.tsx`
 
-- Course picker → sortable table of enrolled students' official/weighted %, attended/conducted, badge; shortfall rows highlighted.
+- Course picker (chips) → table of enrolled students' official/weighted %,
+  attended/conducted, eligibility badge; shortfall rows highlighted and sorted
+  to the top; per-course KPIs (enrolled, below-75, class average).
 
-**Verify:** log in as faculty, pick a course, confirm the roster and flags.
-
----
-
-## Step 7 — Admin rollup + course/enrollment management
-
-**Files:** `app/admin/dashboard/page.tsx` (extend); minimal course/enrollment CRUD UI
-
-- Cross-course averages, count below 75%, worst courses.
-- Staff CRUD for courses; multi-select enroll.
-
-**Verify:** log in as admin, confirm rollup numbers reconcile with per-course data; create a course and enroll a student end-to-end.
+**Verified:** live Playwright render as faculty@pes.edu — Animation shows the
+shortfall student (70.83%) sorted top and tinted, class average 77.08%.
 
 ---
 
-## Step 8 — Full build gate
+## Step 7 — Admin rollup — ✅ DONE (management CRUD deferred)
 
-`npm run build` + `tsc --noEmit` clean; unit tests green. Then hand to you for commit.
+**Files:** `app/admin/attendance/page.tsx` (new), `lib/attendance.ts`
+(`fetchAllAttendance`, `rollupByCourse` + tests), nav links.
+
+- Institution KPIs (courses, students below 75%, institution average, lowest
+  course) + per-course rollup table, worst-average first, shortfall rows flagged.
+
+**Verified:** live render as admin@pes.edu — 6 courses, 2 students below 75%,
+institution avg 73.04%, Cryptography lowest at 55%; numbers reconcile with the
+per-student view.
+
+**Deferred (§7.5 of the spec):** staff CRUD to create/edit courses and enroll
+students via forms. Not required for the demo (the seed provides courses +
+enrollments). Tracked as the remaining piece of this sub-project.
+
+---
+
+## Step 8 — Full build gate — ✅ DONE
+
+`next build` clean (only pre-existing face-api warnings), `tsc --noEmit` clean,
+`node --test` 12/12 green. `tsconfig.json` gained `allowImportingTsExtensions`
+so the Node-runnable test (`.ts` import) also type-checks. Handed to user for commit.
 
 ---
 
