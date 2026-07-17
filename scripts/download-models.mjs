@@ -1,8 +1,13 @@
 /**
- * Downloads the face-api TinyFaceDetector model files into public/models.
+ * Downloads the face-api model files into public/models.
  * Source: the @vladmandic/face-api repository (MIT licensed).
  *
  *   npm run download-models
+ *
+ * TinyFaceDetector is used for fast presence detection everywhere.
+ * The 68-point landmark net powers blink/turn liveness, and the
+ * recognition net produces the 128-d descriptor used for enrollment and
+ * identity matching (Phase 2, sub-project 2).
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -10,8 +15,15 @@ import path from "node:path";
 const BASE =
   "https://raw.githubusercontent.com/vladmandic/face-api/master/model";
 const FILES = [
+  // Detection
   "tiny_face_detector_model-weights_manifest.json",
   "tiny_face_detector_model.bin",
+  // Liveness (68 landmarks → eye-aspect-ratio)
+  "face_landmark_68_model-weights_manifest.json",
+  "face_landmark_68_model.bin",
+  // Identity (128-d descriptor)
+  "face_recognition_model-weights_manifest.json",
+  "face_recognition_model.bin",
 ];
 
 const outDir = path.join(process.cwd(), "public", "models");

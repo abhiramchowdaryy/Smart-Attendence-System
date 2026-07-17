@@ -20,7 +20,11 @@ export type GeofenceState =
  * The server action independently re-validates coordinates — this hook
  * is presentation, not security.
  */
-export function useGeofence(center: LatLng, radiusM: number): GeofenceState {
+export function useGeofence(
+  center: LatLng,
+  radiusM: number,
+  highAccuracy: boolean = true
+): GeofenceState {
   const [state, setState] = useState<GeofenceState>({ status: "seeking" });
 
   useEffect(() => {
@@ -51,11 +55,11 @@ export function useGeofence(center: LatLng, radiusM: number): GeofenceState {
               ? "Location permission denied — allow location access to mark attendance."
               : err.message,
         }),
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+      { enableHighAccuracy: highAccuracy, maximumAge: 5000, timeout: 15000 }
     );
 
     return () => navigator.geolocation.clearWatch(id);
-  }, [center.lat, center.lng, radiusM]);
+  }, [center.lat, center.lng, radiusM, highAccuracy]);
 
   return state;
 }

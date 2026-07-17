@@ -3,12 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { distanceMeters } from "@/lib/geo";
+import { euclideanDistance, isFaceMatch, isValidDescriptor } from "@/lib/face";
+import { fetchGpsSettings } from "@/lib/gps-settings";
 import { FACE_CONFIDENCE_MIN, firstRow } from "@/lib/utils";
-
-/** How far past the geofence radius we tolerate for GPS accuracy drift. */
-const ACCURACY_GRACE_M = 25;
-/** Entries later than this many minutes after session open are "late". */
-const LATE_AFTER_MIN = 10;
 
 export interface MarkResult {
   ok: boolean;
@@ -26,6 +23,8 @@ export async function markEntry(input: {
   lng: number;
   accuracy: number;
   faceConfidence: number;
+  /** Live 128-d face descriptor, matched server-side against enrolment. */
+  descriptor: number[];
 }): Promise<MarkResult> {
   const supabase = await createClient();
 
@@ -47,6 +46,34 @@ export async function markEntry(input: {
     return { ok: false, error: "Face confidence too low — try again in better lighting." };
   }
 
+  // ── Server-side face identity check ────────────────────────────────
+  // The browser produces the live descriptor, but the match decision is
+  // made here against the enrolled descriptor — the client cannot assert
+  // its own identity. (Producing a genuine live descriptor still relies on
+  // the browser; the DeepFace service seam is the path to full hardening.)
+  if (!isValidDescriptor(input.descriptor)) {
+    return { ok: false, error: "Face capture was invalid — please retry." };
+  }
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("face_embedding")
+    .eq("id", user.id)
+    .single();
+
+  if (!isValidDescriptor(me?.face_embedding)) {
+    return {
+      ok: false,
+      error: "No enrolled face found — enrol your face before marking attendance.",
+    };
+  }
+  const faceDistance = euclideanDistance(input.descriptor, me!.face_embedding);
+  if (!isFaceMatch(faceDistance)) {
+    return {
+      ok: false,
+      error: "Face does not match your enrolment — please try again.",
+    };
+  }
+
   // Load the session and its geofence.
   const { data: session, error: sessionError } = await supabase
     .from("sessions")
@@ -64,13 +91,17 @@ export async function markEntry(input: {
   const fence = firstRow(session.geofences);
   if (!fence) return { ok: false, error: "Session has no geofence configured." };
 
+  // Institution GPS policy (admin-configurable), with safe defaults.
+  const gps = await fetchGpsSettings(supabase);
+
   // ── The authoritative geofence check ──────────────────────────────
   const distance = distanceMeters(
     { lat: input.lat, lng: input.lng },
     { lat: Number(fence.lat), lng: Number(fence.lng) }
   );
   const allowed =
-    Number(fence.radius_m) + Math.min(Math.max(input.accuracy, 0), ACCURACY_GRACE_M);
+    Number(fence.radius_m) +
+    Math.min(Math.max(input.accuracy, 0), gps.accuracyGraceM);
   if (distance > allowed) {
     return {
       ok: false,
@@ -81,7 +112,7 @@ export async function markEntry(input: {
   // Late if entering well after the session opened.
   const openedAt = new Date(session.opened_at).getTime();
   const status =
-    Date.now() - openedAt > LATE_AFTER_MIN * 60_000 ? "late" : "present";
+    Date.now() - openedAt > gps.lateAfterMin * 60_000 ? "late" : "present";
 
   const { error: insertError } = await supabase.from("attendance").insert({
     session_id: session.id,
