@@ -22,6 +22,7 @@ const NAV: Record<Role, NavItem[]> = {
   faculty: [
     { href: "/faculty/dashboard", label: "Dashboard" },
     { href: "/faculty/attendance", label: "Attendance" },
+    { href: "/faculty/courses", label: "Courses" },
     { href: "/faculty/marks", label: "Marks" },
     { href: "/faculty/performance", label: "Performance" },
   ],
@@ -29,8 +30,8 @@ const NAV: Record<Role, NavItem[]> = {
     { href: "/admin/dashboard", label: "Dashboard" },
     { href: "/admin/attendance", label: "Attendance" },
     { href: "/faculty/attendance", label: "By course" },
+    { href: "/faculty/courses", label: "Courses" },
     { href: "/faculty/marks", label: "Marks" },
-    { href: "/faculty/performance", label: "Performance" },
     { href: "/admin/settings", label: "GPS" },
   ],
 };
