@@ -13,7 +13,7 @@ export default function ErrorBoundary({
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-4 p-8 text-center">
       <AlertTriangle
-        className="size-10 text-status-late"
+        className="size-10 text-status-late-strong"
         aria-hidden="true"
       />
       <h1 className="text-2xl font-semibold">Something went wrong</h1>

@@ -29,9 +29,9 @@ interface KpiCardProps {
 
 const TONE_CLASS = {
   neutral: "text-primary bg-primary/10",
-  present: "text-status-present bg-status-present/10",
-  late: "text-status-late bg-status-late/10",
-  absent: "text-status-absent bg-status-absent/10",
+  present: "text-status-present-strong bg-status-present/10",
+  late: "text-status-late-strong bg-status-late/10",
+  absent: "text-status-absent-strong bg-status-absent/10",
 } as const;
 
 /**

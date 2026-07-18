@@ -23,6 +23,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Table,
+  TableContainer,
+  Td,
+  Th,
+  THead,
+  Tr,
+} from "@/components/ui/table";
 import { startOfToday, type AttendanceStatus } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Student Dashboard" };
@@ -223,35 +231,33 @@ export default async function StudentDashboard() {
               uploads them.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <th scope="col" className="py-2 pr-4 font-medium">Course</th>
-                    <th scope="col" className="py-2 pr-4 font-medium">Assessment</th>
-                    <th scope="col" className="py-2 pr-4 font-medium">Score</th>
-                    <th scope="col" className="py-2 font-medium">Percent</th>
-                  </tr>
-                </thead>
+            <TableContainer className="max-h-96">
+              <Table>
+                <THead sticky>
+                  <Th>Course</Th>
+                  <Th>Assessment</Th>
+                  <Th>Score</Th>
+                  <Th className="pr-0">Percent</Th>
+                </THead>
                 <tbody>
                   {marks.map((m) => {
                     const pct = Math.round(
                       (Number(m.score) / Number(m.max_score)) * 100
                     );
                     return (
-                      <tr key={m.id} className="border-b transition-colors last:border-0 hover:bg-muted/50">
-                        <td className="py-2.5 pr-4 font-medium">{m.course}</td>
-                        <td className="py-2.5 pr-4">{m.assessment}</td>
-                        <td className="py-2.5 pr-4 font-mono text-xs">
+                      <Tr key={m.id}>
+                        <Td className="font-medium">{m.course}</Td>
+                        <Td>{m.assessment}</Td>
+                        <Td className="font-mono text-xs">
                           {Number(m.score)}/{Number(m.max_score)}
-                        </td>
-                        <td className="py-2.5 font-mono text-xs">{pct}%</td>
-                      </tr>
+                        </Td>
+                        <Td className="pr-0 font-mono text-xs">{pct}%</Td>
+                      </Tr>
                     );
                   })}
                 </tbody>
-              </table>
-            </div>
+              </Table>
+            </TableContainer>
           )}
         </CardContent>
       </Card>
@@ -271,53 +277,48 @@ export default async function StudentDashboard() {
               here.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <th scope="col" className="py-2 pr-4 font-medium">Course</th>
-                    <th scope="col" className="py-2 pr-4 font-medium">Entry</th>
-                    <th scope="col" className="py-2 pr-4 font-medium">Exit</th>
-                    <th scope="col" className="py-2 pr-4 font-medium">Duration</th>
-                    <th scope="col" className="py-2 font-medium">Status</th>
-                  </tr>
-                </thead>
+            <TableContainer>
+              <Table>
+                <THead>
+                  <Th>Course</Th>
+                  <Th>Entry</Th>
+                  <Th>Exit</Th>
+                  <Th>Duration</Th>
+                  <Th className="pr-0">Status</Th>
+                </THead>
                 <tbody>
                   {records.slice(0, 10).map((r) => (
-                    <tr
-                      key={r.id}
-                      className="border-b transition-colors last:border-0 hover:bg-muted/50"
-                    >
-                      <td className="py-2.5 pr-4 font-medium">
+                    <Tr key={r.id}>
+                      <Td className="font-medium">
                         {r.sessions?.course ?? "—"}
-                      </td>
-                      <td className="py-2.5 pr-4 font-mono text-xs">
+                      </Td>
+                      <Td className="font-mono text-xs">
                         {new Date(r.entry_time).toLocaleString([], {
                           month: "short",
                           day: "numeric",
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
-                      </td>
-                      <td className="py-2.5 pr-4 font-mono text-xs">
+                      </Td>
+                      <Td className="font-mono text-xs">
                         {r.exit_time
                           ? new Date(r.exit_time).toLocaleTimeString([], {
                               hour: "2-digit",
                               minute: "2-digit",
                             })
                           : "—"}
-                      </td>
-                      <td className="py-2.5 pr-4">
+                      </Td>
+                      <Td>
                         {r.duration_min !== null ? `${r.duration_min} min` : "—"}
-                      </td>
-                      <td className="py-2.5">
+                      </Td>
+                      <Td className="pr-0">
                         <StatusPill status={r.status} />
-                      </td>
-                    </tr>
+                      </Td>
+                    </Tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </Table>
+            </TableContainer>
           )}
         </CardContent>
       </Card>

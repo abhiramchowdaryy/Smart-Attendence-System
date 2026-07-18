@@ -1,35 +1,16 @@
 import Link from "next/link";
 import { Compass, LogOut } from "lucide-react";
+import { BottomNav, TopNav } from "@/components/nav-links";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { signOut } from "@/app/(auth)/login/actions";
 import type { Role } from "@/lib/utils";
 
-interface NavItem {
-  href: string;
-  label: string;
-}
-
-const NAV: Record<Role, NavItem[]> = {
-  student: [
-    { href: "/student/dashboard", label: "Dashboard" },
-    { href: "/student/mark-attendance", label: "Mark Attendance" },
-  ],
-  faculty: [
-    { href: "/faculty/dashboard", label: "Dashboard" },
-    { href: "/faculty/marks", label: "Marks" },
-    { href: "/faculty/performance", label: "Performance" },
-  ],
-  admin: [
-    { href: "/admin/dashboard", label: "Dashboard" },
-    { href: "/faculty/marks", label: "Marks" },
-    { href: "/faculty/performance", label: "Performance" },
-  ],
-};
-
 /**
- * Shared authenticated shell: PES-branded top bar, role-scoped nav,
- * theme toggle, sign out. Server component — sign out is a server action.
+ * Shared authenticated shell: PES-branded top bar, role-scoped nav
+ * (top links on desktop, bottom tab bar on mobile), theme toggle,
+ * sign out. Server component — sign out is a server action; the nav
+ * pieces are client components for active-route state.
  */
 export function AppShell({
   role,
@@ -42,6 +23,14 @@ export function AppShell({
 }) {
   return (
     <div className="flex min-h-dvh flex-col">
+      {/* Keyboard users jump straight past the chrome */}
+      <a
+        href="#main-content"
+        className="sr-only z-50 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:absolute focus:left-4 focus:top-4"
+      >
+        Skip to content
+      </a>
+
       <header className="sticky top-0 z-40 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
         <div className="container flex h-14 items-center gap-4">
           <Link
@@ -54,19 +43,9 @@ export function AppShell({
             <span className="hidden sm:inline">PES Smart Attendance</span>
           </Link>
 
-          <nav aria-label="Main" className="flex flex-1 items-center gap-1">
-            {NAV[role].map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+          <TopNav role={role} />
 
-          <span className="hidden text-sm text-muted-foreground md:inline">
+          <span className="ml-auto hidden text-sm text-muted-foreground md:ml-0 md:inline">
             {userName}
           </span>
           <ThemeToggle />
@@ -77,7 +56,13 @@ export function AppShell({
           </form>
         </div>
       </header>
-      <main className="container flex-1 py-6">{children}</main>
+
+      {/* pb clears the mobile tab bar so content never hides behind it */}
+      <main id="main-content" className="container flex-1 py-6 pb-24 md:pb-6">
+        {children}
+      </main>
+
+      <BottomNav role={role} />
     </div>
   );
 }

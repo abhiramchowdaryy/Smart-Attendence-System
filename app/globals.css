@@ -26,11 +26,19 @@
   --slate-700: 215 25% 27%;
   --slate-900: 222 47% 11%;
 
-  /* Status primitives */
+  /* Status primitives.
+     600-scale = fills (charts, rings, tinted chips — graphics, 3:1).
+     700/800-scale = text on light/tinted surfaces (WCAG AA ≥ 4.5:1,
+     with margin to survive the /10–/15 tinted backgrounds). */
   --green-600: 142 76% 36%;   /* #16A34A */
+  --green-800: 143 64% 24%;   /* #166534 — 6.4:1 on white */
   --amber-600: 32 95% 44%;    /* #D97706 */
+  --amber-800: 23 83% 31%;    /* #92400E — 6.1:1 on white */
   --red-600: 0 72% 51%;       /* #DC2626 */
+  --red-700: 0 74% 42%;       /* #B91C1C — 5.9:1 on white */
+  --red-400: 0 91% 71%;       /* #F87171 — dark-mode error text */
   --cyan-600: 192 91% 36%;    /* #0891B2 */
+  --cyan-800: 194 70% 27%;    /* #155E75 — 5.9:1 on white */
 
   /* Motion + shape */
   --radius: 0.75rem;
@@ -53,24 +61,35 @@
   --secondary: var(--slate-100);
   --secondary-foreground: var(--slate-700);
 
+  /* Amber CTA. White-on-#D97706 is only 3.2:1, so the accent carries
+     dark text instead (≈5.9:1) — AA at any button size. */
   --accent: var(--pes-amber-aa);
-  --accent-foreground: 0 0% 100%;
+  --accent-foreground: var(--slate-900);
 
   --muted: var(--slate-100);
   --muted-foreground: var(--slate-500);
 
-  --destructive: var(--red-600);
+  /* red-700 keeps white button text at 5.9:1 (red-600 was 4.3:1) */
+  --destructive: var(--red-700);
   --destructive-foreground: 0 0% 100%;
+
+  /* Error TEXT on light/tinted surfaces (buttons keep --destructive) */
+  --error: var(--red-700);
 
   --border: var(--slate-200);
   --input: var(--slate-200);
   --ring: var(--pes-navy-bright);
 
-  /* Attendance status — pair with icon + text, never color alone */
+  /* Attendance status — pair with icon + text, never color alone.
+     Base = fills (charts, tint backgrounds); -strong = text/icons. */
   --status-present: var(--green-600);
   --status-late: var(--amber-600);
   --status-absent: var(--red-600);
   --status-partial: var(--cyan-600);
+  --status-present-strong: var(--green-800);
+  --status-late-strong: var(--amber-800);
+  --status-absent-strong: var(--red-700);
+  --status-partial-strong: var(--cyan-800);
 }
 
 /* ── LAYER 2 · SEMANTIC (dark theme overrides) ────────────────────── */
@@ -94,7 +113,15 @@
   --input: 216 37% 23%;
   --ring: 217 91% 60%;
 
+  /* Error text needs a light red on dark surfaces (#F87171 ≈ 6:1) */
+  --error: var(--red-400);
+
   --status-present: 142 71% 45%; /* #22C55E — brightened */
+  /* Text-safe status colors flip bright on dark surfaces */
+  --status-present-strong: 142 71% 45%;  /* #22C55E */
+  --status-late-strong: 38 92% 50%;      /* #F59E0B */
+  --status-absent-strong: var(--red-400);
+  --status-partial-strong: 187 85% 53%;  /* #22D3EE */
 }
 
 /* ── LAYER 3 · COMPONENT tokens ───────────────────────────────────── */

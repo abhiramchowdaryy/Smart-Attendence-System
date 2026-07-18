@@ -4,13 +4,20 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
-import { CheckCircle2, DoorOpen, LoaderCircle, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  CircleDashed,
+  DoorOpen,
+  LoaderCircle,
+  XCircle,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaceCapture, type FaceStatus } from "@/components/attendance/face-capture";
 import { SuccessCheck } from "@/components/attendance/success-check";
 import { GeofenceIndicator } from "@/components/attendance/geofence-indicator";
 import { useGeofence } from "@/hooks/use-geofence";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { markEntry, markExit } from "@/app/student/mark-attendance/actions";
 
 gsap.registerPlugin(useGSAP);
@@ -43,7 +50,7 @@ export function MarkAttendanceClient({ session, openAttendanceId }: Props) {
   if (openAttendanceId) {
     return (
       <div className="space-y-4">
-        <p className="rounded-md bg-status-present/10 p-4 text-sm text-status-present">
+        <p className="rounded-md bg-status-present/10 p-4 text-sm text-status-present-strong">
           <CheckCircle2 className="mr-2 inline size-4" aria-hidden="true" />
           Entry recorded for <strong>{session.course}</strong>. Tap below when
           you leave the classroom to log your exit and total duration.
@@ -119,6 +126,48 @@ export function MarkAttendanceClient({ session, openAttendanceId }: Props) {
   );
 }
 
+/**
+ * Live requirements checklist — replaces a single ambiguous waiting
+ * line. Both gates are visible at once, so the student always knows
+ * exactly which one is still pending.
+ */
+function ReadinessChecklist({
+  faceOk,
+  geoOk,
+}: {
+  faceOk: boolean;
+  geoOk: boolean;
+}) {
+  const items = [
+    { ok: faceOk, label: "Face detected" },
+    { ok: geoOk, label: "Inside the classroom geofence" },
+  ];
+  return (
+    <ul aria-live="polite" className="space-y-1.5 text-sm">
+      {items.map(({ ok, label }) => (
+        <li
+          key={label}
+          className={cn(
+            "flex items-center gap-2 font-medium",
+            ok ? "text-status-present-strong" : "text-muted-foreground"
+          )}
+        >
+          {ok ? (
+            <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
+          ) : (
+            <CircleDashed
+              className="size-4 shrink-0 animate-spin [animation-duration:3s] motion-reduce:animate-none"
+              aria-hidden="true"
+            />
+          )}
+          {label}
+          <span className="sr-only">{ok ? " — done" : " — waiting"}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function EntryView({
   ready,
   face,
@@ -156,37 +205,32 @@ function EntryView({
       <FaceCapture onStatus={setFace} />
       <GeofenceIndicator state={geo} roomName={session.roomName} />
       <ResultBanner result={result} />
+      <ReadinessChecklist faceOk={face.ok} geoOk={geo.status === "inside"} />
 
-      <Button
-        ref={buttonRef}
-        size="lg"
-        variant="accent"
-        className="w-full"
-        disabled={!ready}
-        onClick={onMark}
-      >
-        {pending ? (
-          <>
-            <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-            Verifying &amp; marking…
-          </>
-        ) : (
-          <>
-            <CheckCircle2 className="size-4" aria-hidden="true" />
-            Mark Entry
-          </>
-        )}
-      </Button>
-
-      {!ready && result.kind !== "success" && (
-        <p className="text-center text-xs text-muted-foreground">
-          {!face.ok && geo.status !== "inside"
-            ? "Waiting for face detection and location…"
-            : !face.ok
-              ? "Waiting for a stable face detection…"
-              : "Waiting for you to be inside the geofence…"}
-        </p>
-      )}
+      {/* Sticky above the mobile tab bar: the CTA stays in the thumb
+          zone even when the camera pushes the page past one screen. */}
+      <div className="sticky bottom-[4.5rem] z-10 md:static">
+        <Button
+          ref={buttonRef}
+          size="lg"
+          variant="accent"
+          className="w-full shadow-pop"
+          disabled={!ready}
+          onClick={onMark}
+        >
+          {pending ? (
+            <>
+              <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+              Verifying &amp; marking…
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="size-4" aria-hidden="true" />
+              Mark Entry
+            </>
+          )}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -200,7 +244,7 @@ function ResultBanner({ result }: { result: Result }) {
           initial={{ opacity: 0, y: -6 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0 }}
-          className="flex flex-col items-center gap-2 rounded-md bg-status-present/10 p-4 text-center text-sm text-status-present"
+          className="flex flex-col items-center gap-2 rounded-md bg-status-present/10 p-4 text-center text-sm text-status-present-strong"
         >
           <SuccessCheck />
           {result.message}
@@ -212,7 +256,7 @@ function ResultBanner({ result }: { result: Result }) {
           initial={{ opacity: 0, y: -6 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0 }}
-          className="flex items-start gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
+          className="flex items-start gap-2 rounded-md bg-destructive/10 p-3 text-sm text-error"
         >
           <XCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           {result.message}

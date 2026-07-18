@@ -32,15 +32,15 @@ export function StatusStackedBars({ data }: { data: DayStatusDatum[] }) {
     <div className="space-y-3">
       {/* Legend: color + icon + label */}
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-medium">
-        <span className="flex items-center gap-1.5 text-status-present">
+        <span className="flex items-center gap-1.5 text-status-present-strong">
           <span className="size-2.5 rounded-sm bg-status-present" aria-hidden="true" />
           <CheckCircle2 className="size-3" aria-hidden="true" /> Present
         </span>
-        <span className="flex items-center gap-1.5 text-status-late">
+        <span className="flex items-center gap-1.5 text-status-late-strong">
           <span className="size-2.5 rounded-sm bg-status-late" aria-hidden="true" />
           <Clock className="size-3" aria-hidden="true" /> Late
         </span>
-        <span className="flex items-center gap-1.5 text-status-partial">
+        <span className="flex items-center gap-1.5 text-status-partial-strong">
           <span className="size-2.5 rounded-sm bg-status-partial" aria-hidden="true" />
           <LogOut className="size-3" aria-hidden="true" /> Left early
         </span>

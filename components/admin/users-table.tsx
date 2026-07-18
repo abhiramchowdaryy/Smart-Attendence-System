@@ -4,6 +4,16 @@ import { useState, useTransition } from "react";
 import { LoaderCircle, ShieldCheck } from "lucide-react";
 import { setUserRole } from "@/app/admin/dashboard/actions";
 import { Badge } from "@/components/ui/badge";
+import { FormMessage } from "@/components/ui/form-message";
+import { Select } from "@/components/ui/select";
+import {
+  Table,
+  TableContainer,
+  Td,
+  Th,
+  THead,
+  Tr,
+} from "@/components/ui/table";
 import type { Role } from "@/lib/utils";
 
 export interface UserRow {
@@ -47,68 +57,66 @@ export function UsersTable({
 
   return (
     <div className="space-y-3">
-      {error && (
-        <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-          {error}
-        </p>
-      )}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <th scope="col" className="py-2 pr-4 font-medium">Name</th>
-              <th scope="col" className="py-2 pr-4 font-medium">Roll no</th>
-              <th scope="col" className="py-2 pr-4 font-medium">Role</th>
-              <th scope="col" className="py-2 font-medium">Change role</th>
-            </tr>
-          </thead>
+      {error && <FormMessage tone="error">{error}</FormMessage>}
+      {/* Long list scrolls under a pinned header instead of growing the page */}
+      <TableContainer className="max-h-96">
+        <Table>
+          <THead sticky>
+            <Th>Name</Th>
+            <Th>Roll no</Th>
+            <Th>Role</Th>
+            <Th className="pr-0">Change role</Th>
+          </THead>
           <tbody>
             {users.map((u) => {
               const isSelf = u.id === currentUserId;
               return (
-                <tr key={u.id} className="border-b transition-colors last:border-0 hover:bg-muted/50">
-                  <td className="py-2.5 pr-4 font-medium">
+                <Tr key={u.id}>
+                  <Td className="font-medium">
                     <span className="flex items-center gap-1.5">
                       {u.full_name}
                       {isSelf && (
                         <span className="text-xs text-muted-foreground">(you)</span>
                       )}
                     </span>
-                  </td>
-                  <td className="py-2.5 pr-4 font-mono text-xs">{u.roll_no ?? "—"}</td>
-                  <td className="py-2.5 pr-4">
+                  </Td>
+                  <Td className="font-mono text-xs">{u.roll_no ?? "—"}</Td>
+                  <Td>
                     <Badge variant={ROLE_BADGE[u.role]}>
                       {u.role === "admin" && (
                         <ShieldCheck className="size-3" aria-hidden="true" />
                       )}
                       {u.role}
                     </Badge>
-                  </td>
-                  <td className="py-2.5">
+                  </Td>
+                  <Td className="pr-0">
                     {isSelf ? (
                       <span className="text-xs text-muted-foreground">Locked</span>
                     ) : pendingId === u.id ? (
-                      <LoaderCircle className="size-4 animate-spin text-muted-foreground" aria-label="Updating role" />
+                      <LoaderCircle
+                        className="size-4 animate-spin text-muted-foreground"
+                        aria-label="Updating role"
+                      />
                     ) : (
-                      <select
-                        suppressHydrationWarning
+                      <Select
                         aria-label={`Change role for ${u.full_name}`}
                         value={u.role}
                         onChange={(e) => changeRole(u.id, e.target.value as Role)}
-                        className="h-8 cursor-pointer rounded-md border border-input bg-card px-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        // 44px touch target on phones, denser on desktop
+                        className="h-11 w-auto px-2 text-xs md:h-9"
                       >
                         <option value="student">student</option>
                         <option value="faculty">faculty</option>
                         <option value="admin">admin</option>
-                      </select>
+                      </Select>
                     )}
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               );
             })}
           </tbody>
-        </table>
-      </div>
+        </Table>
+      </TableContainer>
     </div>
   );
 }

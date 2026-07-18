@@ -13,6 +13,17 @@ const STROKE = 12;
 const R = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * R;
 
+/* 75% requirement marker: a tick across the track at the threshold,
+   so "how far from safe" is visible at a glance, not just the color. */
+const REQ_PCT = 75;
+const REQ_ANGLE = (2 * Math.PI * REQ_PCT) / 100;
+const TICK = {
+  x1: SIZE / 2 + (R - STROKE * 0.9) * Math.cos(REQ_ANGLE),
+  y1: SIZE / 2 + (R - STROKE * 0.9) * Math.sin(REQ_ANGLE),
+  x2: SIZE / 2 + (R + STROKE * 0.9) * Math.cos(REQ_ANGLE),
+  y2: SIZE / 2 + (R + STROKE * 0.9) * Math.sin(REQ_ANGLE),
+};
+
 /**
  * Attendance-rate meter (single-value "hero number" form, per dataviz).
  * The ring draws in with GSAP while the % counts up. Status is encoded
@@ -80,9 +91,9 @@ export function AttendanceRing({
 
   const TEXT_COLOR = {
     muted: "text-muted-foreground",
-    present: "text-status-present",
-    late: "text-status-late",
-    absent: "text-status-absent",
+    present: "text-status-present-strong",
+    late: "text-status-late-strong",
+    absent: "text-status-absent-strong",
   }[state.tone];
 
   return (
@@ -103,6 +114,13 @@ export function AttendanceRing({
             fill="none"
             strokeWidth={STROKE}
             className="stroke-muted"
+          />
+          {/* 75% requirement tick */}
+          <line
+            {...TICK}
+            strokeWidth={2}
+            strokeLinecap="round"
+            className="stroke-muted-foreground/60"
           />
           {/* Value arc — rounded data end */}
           {pct !== null && (

@@ -50,13 +50,20 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        /* Attendance status — always paired with icon + label, never color-only */
+        /* Attendance status — always paired with icon + label, never color-only.
+           Base = fills/tints; -strong = AA text on light or tinted surfaces. */
         status: {
           present: "hsl(var(--status-present))",
           late: "hsl(var(--status-late))",
           absent: "hsl(var(--status-absent))",
           partial: "hsl(var(--status-partial))",
+          "present-strong": "hsl(var(--status-present-strong))",
+          "late-strong": "hsl(var(--status-late-strong))",
+          "absent-strong": "hsl(var(--status-absent-strong))",
+          "partial-strong": "hsl(var(--status-partial-strong))",
         },
+        /* Error text (form messages) — buttons keep `destructive` */
+        error: "hsl(var(--error))",
       },
       fontFamily: {
         display: ["var(--font-display)"],

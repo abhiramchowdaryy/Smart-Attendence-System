@@ -21,6 +21,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Table,
+  TableContainer,
+  Td,
+  Th,
+  THead,
+  Tr,
+} from "@/components/ui/table";
 import { firstRow, startOfToday, type AttendanceStatus } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Faculty Dashboard" };
@@ -169,48 +177,44 @@ export default async function FacultyDashboard() {
                 arrive.
               </p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
-                      <th scope="col" className="py-2 pr-4 font-medium">Student</th>
-                      <th scope="col" className="py-2 pr-4 font-medium">Roll no</th>
-                      <th scope="col" className="py-2 pr-4 font-medium">Entry</th>
-                      <th scope="col" className="py-2 pr-4 font-medium">Face conf.</th>
-                      <th scope="col" className="py-2 font-medium">Status</th>
-                    </tr>
-                  </thead>
+              /* Header stays pinned while a large class scrolls */
+              <TableContainer className="max-h-[28rem]">
+                <Table>
+                  <THead sticky>
+                    <Th>Student</Th>
+                    <Th>Roll no</Th>
+                    <Th>Entry</Th>
+                    <Th>Face conf.</Th>
+                    <Th className="pr-0">Status</Th>
+                  </THead>
                   <tbody>
                     {roster.map((r) => (
-                      <tr
-                        key={r.id}
-                        className="border-b transition-colors last:border-0 hover:bg-muted/50"
-                      >
-                        <td className="py-2.5 pr-4 font-medium">
+                      <Tr key={r.id}>
+                        <Td className="font-medium">
                           {r.profiles?.full_name ?? "—"}
-                        </td>
-                        <td className="py-2.5 pr-4 font-mono text-xs">
+                        </Td>
+                        <Td className="font-mono text-xs">
                           {r.profiles?.roll_no ?? "—"}
-                        </td>
-                        <td className="py-2.5 pr-4 font-mono text-xs">
+                        </Td>
+                        <Td className="font-mono text-xs">
                           {new Date(r.entry_time).toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
-                        </td>
-                        <td className="py-2.5 pr-4 font-mono text-xs">
+                        </Td>
+                        <Td className="font-mono text-xs">
                           {r.face_confidence !== null
                             ? `${Math.round(Number(r.face_confidence) * 100)}%`
                             : "—"}
-                        </td>
-                        <td className="py-2.5">
+                        </Td>
+                        <Td className="pr-0">
                           <StatusPill status={r.status} />
-                        </td>
-                      </tr>
+                        </Td>
+                      </Tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                </Table>
+              </TableContainer>
             )}
           </CardContent>
         </Card>

@@ -2,8 +2,6 @@
 
 import { useActionState, useRef, useState, useTransition } from "react";
 import {
-  AlertCircle,
-  CheckCircle2,
   Crosshair,
   LoaderCircle,
   MapPin,
@@ -16,6 +14,7 @@ import {
   type AdminActionState,
 } from "@/app/admin/dashboard/actions";
 import { Button } from "@/components/ui/button";
+import { FormMessage } from "@/components/ui/form-message";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -118,11 +117,7 @@ export function GeofenceManager({ geofences }: { geofences: GeofenceRow[] }) {
           ))}
         </ul>
       )}
-      {delError && (
-        <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-          {delError}
-        </p>
-      )}
+      {delError && <FormMessage tone="error">{delError}</FormMessage>}
 
       {/* Add new */}
       <form action={action} className="space-y-4 rounded-md border border-dashed p-4">
@@ -167,7 +162,7 @@ export function GeofenceManager({ geofences }: { geofences: GeofenceRow[] }) {
           {locating ? "Locating…" : "Use my current location"}
         </Button>
         {locError && (
-          <p role="alert" className="text-sm text-destructive">{locError}</p>
+          <p role="alert" className="text-sm text-error">{locError}</p>
         )}
 
         <div className="space-y-2">
@@ -178,17 +173,9 @@ export function GeofenceManager({ geofences }: { geofences: GeofenceRow[] }) {
           />
         </div>
 
-        {state.error && (
-          <p role="alert" className="flex items-start gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-            <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            {state.error}
-          </p>
-        )}
+        {state.error && <FormMessage tone="error">{state.error}</FormMessage>}
         {state.message && (
-          <p role="status" className="flex items-start gap-2 rounded-md bg-status-present/10 p-3 text-sm text-status-present">
-            <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            {state.message}
-          </p>
+          <FormMessage tone="success">{state.message}</FormMessage>
         )}
 
         <Button type="submit" className="w-full" disabled={pending}>

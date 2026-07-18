@@ -1,10 +1,12 @@
 "use client";
 
 import { useActionState } from "react";
-import { AlertCircle, CheckCircle2, LoaderCircle, Play } from "lucide-react";
+import { LoaderCircle, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { FormMessage } from "@/components/ui/form-message";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import {
   openSession,
   type SessionFormState,
@@ -35,14 +37,7 @@ export function OpenSessionForm({ geofences }: { geofences: GeofenceOption[] }) 
 
       <div className="space-y-2">
         <Label htmlFor="geofenceId">Classroom geofence</Label>
-        <select
-          id="geofenceId"
-          name="geofenceId"
-          required
-          defaultValue=""
-          suppressHydrationWarning
-          className="flex h-11 w-full cursor-pointer rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
+        <Select id="geofenceId" name="geofenceId" required defaultValue="">
           <option value="" disabled>
             Choose a room…
           </option>
@@ -51,26 +46,12 @@ export function OpenSessionForm({ geofences }: { geofences: GeofenceOption[] }) 
               {g.room_name} (radius {g.radius_m} m)
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
-      {state.error && (
-        <p
-          role="alert"
-          className="flex items-start gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
-        >
-          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          {state.error}
-        </p>
-      )}
+      {state.error && <FormMessage tone="error">{state.error}</FormMessage>}
       {state.message && (
-        <p
-          role="status"
-          className="flex items-start gap-2 rounded-md bg-status-present/10 p-3 text-sm text-status-present"
-        >
-          <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          {state.message}
-        </p>
+        <FormMessage tone="success">{state.message}</FormMessage>
       )}
 
       <Button type="submit" variant="accent" className="w-full" disabled={pending}>

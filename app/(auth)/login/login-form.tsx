@@ -1,16 +1,10 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import {
-  AlertCircle,
-  ArrowRight,
-  CheckCircle2,
-  Loader2,
-  Lock,
-  Mail,
-} from "lucide-react";
+import { ArrowRight, Loader2, Lock, Mail } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { FormMessage } from "@/components/ui/form-message";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -96,23 +90,9 @@ export function LoginForm() {
           </div>
         )}
 
-        {state.error && (
-          <p
-            role="alert"
-            className="flex items-start gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
-          >
-            <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            {state.error}
-          </p>
-        )}
+        {state.error && <FormMessage tone="error">{state.error}</FormMessage>}
         {state.message && (
-          <p
-            role="status"
-            className="flex items-start gap-2 rounded-md bg-status-present/10 p-3 text-sm text-status-present"
-          >
-            <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            {state.message}
-          </p>
+          <FormMessage tone="success">{state.message}</FormMessage>
         )}
 
         <Button
@@ -156,7 +136,8 @@ export function LoginForm() {
         type="button"
         suppressHydrationWarning
         onClick={() => setMode(mode === "password" ? "magic" : "password")}
-        className="w-full cursor-pointer rounded-md border border-input bg-transparent px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-muted"
+        // min-h-11 keeps this a 44px touch target on phones
+        className="flex min-h-11 w-full cursor-pointer items-center justify-center rounded-md border border-input bg-transparent px-4 py-2 text-center text-sm font-medium transition-colors hover:bg-muted"
       >
         {mode === "password"
           ? "Sign in with a magic link instead"

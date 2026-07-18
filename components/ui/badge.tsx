@@ -10,10 +10,14 @@ const badgeVariants = cva(
         default: "border-transparent bg-primary text-primary-foreground",
         secondary: "border-transparent bg-secondary text-secondary-foreground",
         outline: "text-foreground",
-        present: "border-transparent bg-status-present/15 text-status-present",
-        late: "border-transparent bg-status-late/15 text-status-late",
-        absent: "border-transparent bg-status-absent/15 text-status-absent",
-        partial: "border-transparent bg-status-partial/15 text-status-partial",
+        /* Tinted fills + -strong text keeps the pills ≥4.5:1 (AA) */
+        present:
+          "border-transparent bg-status-present/15 text-status-present-strong",
+        late: "border-transparent bg-status-late/15 text-status-late-strong",
+        absent:
+          "border-transparent bg-status-absent/15 text-status-absent-strong",
+        partial:
+          "border-transparent bg-status-partial/15 text-status-partial-strong",
       },
     },
     defaultVariants: { variant: "default" },

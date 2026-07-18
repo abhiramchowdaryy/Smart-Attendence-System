@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Sigma, TrendingUp, Users } from "lucide-react";
+import { AlertTriangle, Sigma, TrendingUp, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import { GsapReveal } from "@/components/gsap-reveal";
@@ -9,6 +9,7 @@ import {
   type CorrelationPoint,
 } from "@/components/charts/correlation-scatter";
 import { describeR, linearRegression, pearsonR } from "@/lib/stats";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -16,6 +17,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Table,
+  TableContainer,
+  Td,
+  Th,
+  THead,
+  Tr,
+} from "@/components/ui/table";
 
 export const metadata: Metadata = { title: "Performance Analysis" };
 
@@ -149,45 +158,62 @@ export default async function PerformancePage() {
             <CardHeader>
               <CardTitle>Per-student breakdown</CardTitle>
               <CardDescription>
-                The table behind the chart — sorted by attendance.
+                The table behind the chart — sorted by attendance. Students
+                under the 75% requirement are flagged{" "}
+                <span className="font-medium text-status-late-strong">
+                  At risk
+                </span>
+                .
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
-                      <th scope="col" className="py-2 pr-4 font-medium">Student</th>
-                      <th scope="col" className="py-2 pr-4 font-medium">Roll no</th>
-                      <th scope="col" className="py-2 pr-4 font-medium">Attendance</th>
-                      <th scope="col" className="py-2 pr-4 font-medium">Avg marks</th>
-                      <th scope="col" className="py-2 font-medium">Assessments</th>
-                    </tr>
-                  </thead>
+              <TableContainer className="max-h-[28rem]">
+                <Table>
+                  <THead sticky>
+                    <Th>Student</Th>
+                    <Th>Roll no</Th>
+                    <Th>Attendance</Th>
+                    <Th>Avg marks</Th>
+                    <Th className="pr-0">Assessments</Th>
+                  </THead>
                   <tbody>
-                    {rows.map((row) => (
-                      <tr
-                        key={row.roll ?? row.name}
-                        className="border-b transition-colors last:border-0 hover:bg-muted/50"
-                      >
-                        <td className="py-2.5 pr-4 font-medium">{row.name}</td>
-                        <td className="py-2.5 pr-4 font-mono text-xs">
-                          {row.roll ?? "—"}
-                        </td>
-                        <td className="py-2.5 pr-4 font-mono text-xs">
-                          {row.attendancePct}%
-                        </td>
-                        <td className="py-2.5 pr-4 font-mono text-xs">
-                          {row.marksPct}%
-                        </td>
-                        <td className="py-2.5 font-mono text-xs">
-                          {row.assessments}
-                        </td>
-                      </tr>
-                    ))}
+                    {rows.map((row) => {
+                      const atRisk = row.attendancePct < 75;
+                      return (
+                        <Tr key={row.roll ?? row.name}>
+                          <Td className="font-medium">{row.name}</Td>
+                          <Td className="font-mono text-xs">
+                            {row.roll ?? "—"}
+                          </Td>
+                          <Td>
+                            <span className="flex items-center gap-2">
+                              <span className="font-mono text-xs">
+                                {row.attendancePct}%
+                              </span>
+                              {/* Icon + label, never color alone */}
+                              {atRisk && (
+                                <Badge variant="late">
+                                  <AlertTriangle
+                                    className="size-3"
+                                    aria-hidden="true"
+                                  />
+                                  At risk
+                                </Badge>
+                              )}
+                            </span>
+                          </Td>
+                          <Td className="font-mono text-xs">
+                            {row.marksPct}%
+                          </Td>
+                          <Td className="pr-0 font-mono text-xs">
+                            {row.assessments}
+                          </Td>
+                        </Tr>
+                      );
+                    })}
                   </tbody>
-                </table>
-              </div>
+                </Table>
+              </TableContainer>
             </CardContent>
           </Card>
         </>

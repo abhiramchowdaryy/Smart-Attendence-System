@@ -11,6 +11,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Table,
+  TableContainer,
+  Td,
+  Th,
+  THead,
+  Tr,
+} from "@/components/ui/table";
 
 export const metadata: Metadata = { title: "Upload Marks" };
 
@@ -98,37 +106,35 @@ export default async function MarksPage() {
                 them.
               </p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
-                      <th scope="col" className="py-2 pr-4 font-medium">Student</th>
-                      <th scope="col" className="py-2 pr-4 font-medium">Course</th>
-                      <th scope="col" className="py-2 pr-4 font-medium">Assessment</th>
-                      <th scope="col" className="py-2 font-medium">Score</th>
-                    </tr>
-                  </thead>
+              <TableContainer className="max-h-96">
+                <Table>
+                  <THead sticky>
+                    <Th>Student</Th>
+                    <Th>Course</Th>
+                    <Th>Assessment</Th>
+                    <Th className="pr-0">Score</Th>
+                  </THead>
                   <tbody>
                     {marks.map((m) => (
-                      <tr key={m.id} className="border-b transition-colors last:border-0 hover:bg-muted/50">
-                        <td className="py-2.5 pr-4 font-medium">
+                      <Tr key={m.id}>
+                        <Td className="font-medium">
                           {m.profiles?.full_name ?? "—"}
                           {m.profiles?.roll_no && (
                             <span className="ml-1 font-mono text-xs text-muted-foreground">
                               {m.profiles.roll_no}
                             </span>
                           )}
-                        </td>
-                        <td className="py-2.5 pr-4">{m.course}</td>
-                        <td className="py-2.5 pr-4">{m.assessment}</td>
-                        <td className="py-2.5 font-mono text-xs">
+                        </Td>
+                        <Td>{m.course}</Td>
+                        <Td>{m.assessment}</Td>
+                        <Td className="pr-0 font-mono text-xs">
                           {Number(m.score)}/{Number(m.max_score)}
-                        </td>
-                      </tr>
+                        </Td>
+                      </Tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                </Table>
+              </TableContainer>
             )}
           </CardContent>
         </Card>

@@ -136,7 +136,7 @@ export default async function LoginPage() {
                 role="alert"
                 className="rounded-md border border-status-late/40 bg-status-late/10 p-4 text-sm"
               >
-                <p className="font-semibold text-status-late">Setup required</p>
+                <p className="font-semibold text-status-late-strong">Setup required</p>
                 <p className="mt-1 text-muted-foreground">
                   No Supabase credentials found. Copy{" "}
                   <code className="font-mono text-xs">.env.example</code> to{" "}

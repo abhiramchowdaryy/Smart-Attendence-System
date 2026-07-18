@@ -190,7 +190,7 @@ export function FaceCapture({
         aria-live="polite"
         className={cn(
           "flex items-center gap-2 text-sm font-medium",
-          faceOk ? "text-status-present" : "text-muted-foreground"
+          faceOk ? "text-status-present-strong" : "text-muted-foreground"
         )}
       >
         <Camera className="size-4 shrink-0" aria-hidden="true" />

@@ -21,21 +21,21 @@ export function GeofenceIndicator({
   switch (state.status) {
     case "unsupported":
       return (
-        <div role="status" className={cn(base, "border-destructive/40 bg-destructive/10 text-destructive")}>
+        <div role="status" className={cn(base, "border-destructive/40 bg-destructive/10 text-error")}>
           <Ban className="size-4 shrink-0" aria-hidden="true" />
           This device does not support location.
         </div>
       );
     case "denied":
       return (
-        <div role="alert" className={cn(base, "border-destructive/40 bg-destructive/10 text-destructive")}>
+        <div role="alert" className={cn(base, "border-destructive/40 bg-destructive/10 text-error")}>
           <MapPinOff className="size-4 shrink-0" aria-hidden="true" />
           {state.message}
         </div>
       );
     case "seeking":
       return (
-        <div role="status" className={cn(base, "border-status-late/40 bg-status-late/10 text-status-late")}>
+        <div role="status" className={cn(base, "border-status-late/40 bg-status-late/10 text-status-late-strong")}>
           {/* Radar ping while acquiring a fix */}
           <span className="relative flex size-4 shrink-0 items-center justify-center" aria-hidden="true">
             <span className="absolute inline-flex size-full animate-ping rounded-full bg-status-late opacity-60" />
@@ -46,7 +46,7 @@ export function GeofenceIndicator({
       );
     case "inside":
       return (
-        <div role="status" className={cn(base, "border-status-present/40 bg-status-present/10 text-status-present")}>
+        <div role="status" className={cn(base, "border-status-present/40 bg-status-present/10 text-status-present-strong")}>
           {/* Steady pulse confirms an active, in-bounds fix */}
           <span className="relative flex size-4 shrink-0 items-center justify-center" aria-hidden="true">
             <span className="absolute inline-flex size-2.5 animate-ping rounded-full bg-status-present opacity-40 [animation-duration:2.5s]" />
@@ -60,7 +60,7 @@ export function GeofenceIndicator({
       );
     case "outside":
       return (
-        <div role="status" className={cn(base, "border-status-absent/40 bg-status-absent/10 text-status-absent")}>
+        <div role="status" className={cn(base, "border-status-absent/40 bg-status-absent/10 text-status-absent-strong")}>
           <MapPinOff className="size-4 shrink-0" aria-hidden="true" />
           Outside geofence — {state.distance} m from “{roomName}”
           <span className="ml-auto font-mono text-xs opacity-70">
