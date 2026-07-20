@@ -37,7 +37,7 @@ function IconInput({
   );
 }
 
-export function LoginForm() {
+export function LoginForm({ next }: { next?: string }) {
   const [mode, setMode] = useState<"password" | "magic">("password");
   const [pwState, pwAction, pwPending] = useActionState(
     signInWithPassword,
@@ -68,6 +68,7 @@ export function LoginForm() {
         action={mode === "password" ? pwAction : mlAction}
         className="space-y-4"
       >
+        {next && <input type="hidden" name="next" value={next} />}
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <IconInput

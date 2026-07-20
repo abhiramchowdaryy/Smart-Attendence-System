@@ -35,7 +35,13 @@ export async function signInWithPassword(
   if (error) return { error: error.message };
 
   revalidatePath("/", "layout");
-  return redirectToRoleHome(supabase, data.user.id);
+  // `next` carries the page the middleware bounced them off; it is
+  // validated inside redirectToRoleHome before being honoured.
+  return redirectToRoleHome(
+    supabase,
+    data.user.id,
+    String(formData.get("next") ?? "")
+  );
 }
 
 /** Passwordless magic-link sign-in. */

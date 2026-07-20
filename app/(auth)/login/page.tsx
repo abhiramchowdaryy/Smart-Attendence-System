@@ -27,14 +27,24 @@ const DOTS_DARKPANEL = {
   backgroundSize: "22px 22px",
 } as const;
 
-export default async function LoginPage() {
-  // Already signed in? Straight to the role home.
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  // The middleware records the page an unauthenticated user was heading
+  // for as ?next=; carry it through the form so sign-in lands them there
+  // instead of dropping them on the dashboard. The value is validated
+  // server-side (safeRedirectPath) before it is ever honoured.
+  const { next } = await searchParams;
+
+  // Already signed in? Straight to the role home (or the pending target).
   if (supabaseConfigured()) {
     const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (user) await redirectToRoleHome(supabase, user.id);
+    if (user) await redirectToRoleHome(supabase, user.id, next);
   }
 
   return (
@@ -147,7 +157,7 @@ export default async function LoginPage() {
                 </p>
               </div>
             )}
-            <LoginForm />
+            <LoginForm next={next} />
           </div>
         </div>
 

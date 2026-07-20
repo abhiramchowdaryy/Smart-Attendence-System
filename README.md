@@ -42,9 +42,9 @@ npm run download-models   # detector + landmarks + recognition nets → public/m
 
 1. [supabase.com](https://supabase.com) → New project (free tier).
 2. SQL Editor → paste **`supabase/schema.sql`** → Run.
-3. Run each file in **`supabase/migrations/`** in order (0001 → 0005):
+3. Run each file in **`supabase/migrations/`** in order (0001 → 0006):
    courses + enrolments, attendance summary view, GPS settings,
-   student details, face-enrolment flag.
+   student details, face-enrolment flag, performance rollup view.
 4. Open **`supabase/seed.sql`**, **edit the geofence lat/lng to your current
    location** (Google Maps → right-click → copy coordinates), then run it.
 5. After creating users (step 4 below), run **`supabase/seed_phase2.sql`**
@@ -135,8 +135,9 @@ components/
 hooks/use-geofence.ts    live Haversine geofence state (UX only)
 lib/                     attendance (75% policy) · results (grades/GPA) · face
                          (match + EAR liveness math) · gps-settings · geo · auth
+                         · redirect (open-redirect guard)
                          — each with node --test unit tests
-supabase/                schema.sql · migrations/0001–0005 · seed*.sql
+supabase/                schema.sql · migrations/0001–0006 · seed*.sql
 docs/                    attendance-aggregation-engine design + implementation
                          plan · STARTER_REFERENCE.md
 scripts/download-models.mjs
@@ -164,6 +165,12 @@ framework needed).
    check by construction. Replacing an enrolment is an admin action
    (**Reset** in the admin users table), which keeps a human at the point
    where trust is established.
+7. **Guarded post-login redirect** — the `?next=` the middleware records is
+   attacker-controlled, so `safeRedirectPath()` accepts only same-origin
+   paths inside a known section before it is honoured (unit-tested).
+8. **Authenticated face-verify proxy** — `/api/face/verify` requires a
+   session, bounds the request body and the upstream wait, and binds the
+   call to the caller's user id server-side.
 
 Known limitation (documented for the report): the *live descriptor* is
 still produced in the browser, so a sophisticated attacker who can forge

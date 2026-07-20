@@ -19,60 +19,41 @@ import {
 
 export const metadata: Metadata = { title: "Performance Analysis" };
 
+/** One pre-aggregated row per student (view: public.student_performance). */
+interface PerformanceRow {
+  student_id: string;
+  full_name: string;
+  roll_no: string | null;
+  attended: number;
+  assessments: number;
+  marks_pct: number;
+}
+
 export default async function PerformancePage() {
   await requireRole(["faculty", "admin"]);
   const supabase = await createClient();
 
-  // Denominator: all sessions ever held.
-  const { count: totalSessions } = await supabase
-    .from("sessions")
-    .select("id", { count: "exact", head: true });
-
-  // Every student's attended sessions.
-  const { data: attendanceRows } = await supabase
-    .from("attendance")
-    .select("student_id, status")
-    .neq("status", "absent");
-
-  const attendedBy = new Map<string, number>();
-  for (const row of attendanceRows ?? []) {
-    attendedBy.set(row.student_id, (attendedBy.get(row.student_id) ?? 0) + 1);
-  }
-
-  // Every student's marks.
-  const { data: markRows } = await supabase
-    .from("marks")
-    .select("student_id, score, max_score");
-
-  const marksBy = new Map<string, { totalPct: number; n: number }>();
-  for (const row of markRows ?? []) {
-    const pct = (Number(row.score) / Number(row.max_score)) * 100;
-    const agg = marksBy.get(row.student_id) ?? { totalPct: 0, n: 0 };
-    agg.totalPct += pct;
-    agg.n += 1;
-    marksBy.set(row.student_id, agg);
-  }
-
-  // Names for everyone who has at least one mark.
-  const { data: students } = await supabase
-    .from("profiles")
-    .select("id, full_name, roll_no")
-    .eq("role", "student");
+  // Aggregation happens in Postgres (view: student_performance, migration
+  // 0006) rather than by pulling raw attendance/marks history into Node.
+  // Both reads are independent, so they go out together.
+  const [{ count: totalSessions }, { data: perf }] = await Promise.all([
+    // Denominator: all sessions ever held.
+    supabase.from("sessions").select("id", { count: "exact", head: true }),
+    supabase
+      .from("student_performance")
+      .select("student_id, full_name, roll_no, attended, assessments, marks_pct")
+      .returns<PerformanceRow[]>(),
+  ]);
 
   const held = totalSessions ?? 0;
-  const rows = (students ?? [])
-    .filter((s) => marksBy.has(s.id))
-    .map((s) => {
-      const marks = marksBy.get(s.id)!;
-      const attended = attendedBy.get(s.id) ?? 0;
-      return {
-        name: s.full_name,
-        roll: s.roll_no,
-        attendancePct: held > 0 ? Math.round((attended / held) * 100) : 0,
-        marksPct: Math.round(marks.totalPct / marks.n),
-        assessments: marks.n,
-      };
-    })
+  const rows = (perf ?? [])
+    .map((s) => ({
+      name: s.full_name,
+      roll: s.roll_no,
+      attendancePct: held > 0 ? Math.round((s.attended / held) * 100) : 0,
+      marksPct: Math.round(Number(s.marks_pct)),
+      assessments: s.assessments,
+    }))
     .sort((a, b) => b.attendancePct - a.attendancePct);
 
   const points: CorrelationPoint[] = rows.map((r) => ({

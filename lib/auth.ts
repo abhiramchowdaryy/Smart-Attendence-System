@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { safeRedirectPath } from "@/lib/redirect";
 import { ROLE_HOME, supabaseConfigured, type Role } from "@/lib/utils";
 
 export interface SessionProfile {
@@ -10,10 +11,14 @@ export interface SessionProfile {
   role: Role;
 }
 
-/** Sends a signed-in user to their role's landing page. Never returns. */
+/**
+ * Sends a signed-in user to `next` when it is a safe in-app path they are
+ * allowed to reach, otherwise to their role's landing page. Never returns.
+ */
 export async function redirectToRoleHome(
   supabase: SupabaseClient,
-  userId: string
+  userId: string,
+  next?: string | null
 ): Promise<never> {
   const { data: profile } = await supabase
     .from("profiles")
@@ -21,7 +26,20 @@ export async function redirectToRoleHome(
     .eq("id", userId)
     .single();
 
-  redirect(ROLE_HOME[(profile?.role as Role) ?? "student"]);
+  const role = (profile?.role as Role) ?? "student";
+
+  // Honour the original destination only if this role owns that section —
+  // otherwise the section layout would just bounce them again.
+  const target = safeRedirectPath(next);
+  if (target) {
+    const ownsSection =
+      target.startsWith(`/${role}/`) ||
+      // Faculty pages are shared with admin (see the shell's nav).
+      (role === "admin" && target.startsWith("/faculty/"));
+    if (ownsSection) redirect(target);
+  }
+
+  redirect(ROLE_HOME[role]);
 }
 
 /**
