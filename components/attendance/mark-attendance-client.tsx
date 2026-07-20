@@ -123,7 +123,7 @@ export function MarkAttendanceClient({
                   kind: "success",
                   message:
                     res.status === "late"
-                      ? "Entry recorded — marked Late (session opened over 10 min ago)."
+                      ? `Entry recorded — marked Late (session opened over ${res.lateAfterMin ?? 10} min ago).`
                       : "Entry recorded — you're marked Present.",
                 }
               : { kind: "error", message: res.error ?? "Something went wrong." }

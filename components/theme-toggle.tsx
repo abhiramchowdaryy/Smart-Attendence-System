@@ -6,7 +6,11 @@ import { Button } from "@/components/ui/button";
 import { useUiStore } from "@/stores/ui-store";
 
 export function ThemeToggle() {
-  const { theme, toggleTheme } = useUiStore();
+  // Atomic selectors: destructuring the store object subscribes this
+  // component to every field, so any future slice added to the UI store
+  // would start re-rendering the header on each change.
+  const theme = useUiStore((s) => s.theme);
+  const toggleTheme = useUiStore((s) => s.toggleTheme);
   const [mounted, setMounted] = useState(false);
 
   // Sync store with the class the head script applied before hydration

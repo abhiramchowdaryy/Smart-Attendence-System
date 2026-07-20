@@ -54,6 +54,30 @@ export async function setUserRole(
   return { message: "Role updated." };
 }
 
+/**
+ * Clears a student's enrolled face so they can enrol again.
+ *
+ * Face enrolment is first-write-only (see enrollFace) precisely so that the
+ * identity anchor cannot be silently swapped by whoever holds the session.
+ * This is the deliberate, staff-gated escape hatch for the legitimate cases
+ * — a poor original capture, or a student whose appearance changed.
+ */
+export async function resetFaceEnrollment(
+  userId: string
+): Promise<AdminActionState> {
+  const { supabase, user, error } = await requireAdmin();
+  if (!user) return { error: error ?? "Not allowed." };
+
+  const { error: updateError } = await supabase
+    .from("profiles")
+    .update({ face_embedding: null })
+    .eq("id", userId);
+  if (updateError) return { error: updateError.message };
+
+  revalidatePath("/admin/dashboard");
+  return { message: "Face enrolment reset — the student can now re-enrol." };
+}
+
 /** Creates a classroom geofence. */
 export async function createGeofence(
   _prev: AdminActionState,

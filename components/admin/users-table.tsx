@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { LoaderCircle, ShieldCheck } from "lucide-react";
-import { setUserRole } from "@/app/admin/dashboard/actions";
+import { LoaderCircle, RotateCcw, ScanFace, ShieldCheck } from "lucide-react";
+import { resetFaceEnrollment, setUserRole } from "@/app/admin/dashboard/actions";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { Role } from "@/lib/utils";
 
 export interface UserRow {
@@ -12,6 +13,8 @@ export interface UserRow {
   roll_no: string | null;
   role: Role;
   created_at: string;
+  /** Whether a face descriptor is stored for this user. */
+  face_enrolled: boolean;
 }
 
 const ROLE_BADGE: Record<Role, "default" | "secondary" | "outline"> = {
@@ -32,7 +35,10 @@ export function UsersTable({
   currentUserId: string;
 }) {
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [resettingId, setResettingId] = useState<string | null>(null);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   function changeRole(userId: string, role: Role) {
@@ -45,11 +51,32 @@ export function UsersTable({
     });
   }
 
+  // Two-step: clearing a face enrolment is the one action that re-opens the
+  // identity anchor, so it asks for confirmation rather than firing on a
+  // single stray click.
+  function resetFace(userId: string) {
+    setResettingId(userId);
+    setConfirmId(null);
+    setError(null);
+    setNotice(null);
+    startTransition(async () => {
+      const res = await resetFaceEnrollment(userId);
+      if (res.error) setError(res.error);
+      else setNotice(res.message ?? "Face enrolment reset.");
+      setResettingId(null);
+    });
+  }
+
   return (
     <div className="space-y-3">
       {error && (
         <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
           {error}
+        </p>
+      )}
+      {notice && (
+        <p role="status" className="rounded-md bg-status-present/10 p-3 text-sm text-status-present">
+          {notice}
         </p>
       )}
       <div className="overflow-x-auto">
@@ -59,7 +86,8 @@ export function UsersTable({
               <th scope="col" className="py-2 pr-4 font-medium">Name</th>
               <th scope="col" className="py-2 pr-4 font-medium">Roll no</th>
               <th scope="col" className="py-2 pr-4 font-medium">Role</th>
-              <th scope="col" className="py-2 font-medium">Change role</th>
+              <th scope="col" className="py-2 pr-4 font-medium">Change role</th>
+              <th scope="col" className="py-2 font-medium">Face</th>
             </tr>
           </thead>
           <tbody>
@@ -84,7 +112,7 @@ export function UsersTable({
                       {u.role}
                     </Badge>
                   </td>
-                  <td className="py-2.5">
+                  <td className="py-2.5 pr-4">
                     {isSelf ? (
                       <span className="text-xs text-muted-foreground">Locked</span>
                     ) : pendingId === u.id ? (
@@ -101,6 +129,54 @@ export function UsersTable({
                         <option value="faculty">faculty</option>
                         <option value="admin">admin</option>
                       </select>
+                    )}
+                  </td>
+                  <td className="py-2.5">
+                    {!u.face_enrolled ? (
+                      <span className="text-xs text-muted-foreground">
+                        Not enrolled
+                      </span>
+                    ) : resettingId === u.id ? (
+                      <LoaderCircle
+                        className="size-4 animate-spin text-muted-foreground"
+                        aria-label="Resetting face enrolment"
+                      />
+                    ) : confirmId === u.id ? (
+                      <span className="flex items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => resetFace(u.id)}
+                        >
+                          Confirm reset
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => setConfirmId(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        <Badge variant="secondary">
+                          <ScanFace className="size-3" aria-hidden="true" />
+                          Enrolled
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => setConfirmId(u.id)}
+                          aria-label={`Reset face enrolment for ${u.full_name}`}
+                        >
+                          <RotateCcw className="size-3" aria-hidden="true" />
+                          Reset
+                        </Button>
+                      </span>
                     )}
                   </td>
                 </tr>

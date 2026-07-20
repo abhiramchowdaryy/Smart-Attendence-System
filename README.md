@@ -42,9 +42,9 @@ npm run download-models   # detector + landmarks + recognition nets → public/m
 
 1. [supabase.com](https://supabase.com) → New project (free tier).
 2. SQL Editor → paste **`supabase/schema.sql`** → Run.
-3. Run each file in **`supabase/migrations/`** in order (0001 → 0004):
+3. Run each file in **`supabase/migrations/`** in order (0001 → 0005):
    courses + enrolments, attendance summary view, GPS settings,
-   student details.
+   student details, face-enrolment flag.
 4. Open **`supabase/seed.sql`**, **edit the geofence lat/lng to your current
    location** (Google Maps → right-click → copy coordinates), then run it.
 5. After creating users (step 4 below), run **`supabase/seed_phase2.sql`**
@@ -136,7 +136,9 @@ hooks/use-geofence.ts    live Haversine geofence state (UX only)
 lib/                     attendance (75% policy) · results (grades/GPA) · face
                          (match + EAR liveness math) · gps-settings · geo · auth
                          — each with node --test unit tests
-supabase/                schema.sql · migrations/0001–0004 · seed*.sql
+supabase/                schema.sql · migrations/0001–0005 · seed*.sql
+docs/                    attendance-aggregation-engine design + implementation
+                         plan · STARTER_REFERENCE.md
 scripts/download-models.mjs
 ```
 
@@ -154,6 +156,14 @@ framework needed).
    staff touch marks/courses/settings; users cannot self-promote.
 5. **Liveness** — a blink (eye-aspect-ratio transition) is required before
    any face is accepted, defeating a static held-up photo.
+6. **First-write-only face enrolment** — `profiles.face_embedding` can be
+   written once and never silently overwritten (the update is guarded by
+   `.is("face_embedding", null)`, so concurrent submits cannot race it).
+   Without this the identity anchor is self-serve: anyone holding an
+   unlocked session could re-enrol their own face and pass every later
+   check by construction. Replacing an enrolment is an admin action
+   (**Reset** in the admin users table), which keeps a human at the point
+   where trust is established.
 
 Known limitation (documented for the report): the *live descriptor* is
 still produced in the browser, so a sophisticated attacker who can forge

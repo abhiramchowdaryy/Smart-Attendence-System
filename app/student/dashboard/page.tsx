@@ -40,24 +40,37 @@ export default async function StudentDashboard() {
   const profile = await requireRole(["student"]);
   const supabase = await createClient();
 
-  // Last 30 days of this student's attendance (RLS scopes to own rows).
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const { data: rows } = await supabase
-    .from("attendance")
-    .select("id, entry_time, exit_time, duration_min, status, sessions(course)")
-    .eq("student_id", profile.id)
-    .gte("entry_time", since)
-    .order("entry_time", { ascending: false })
-    .returns<AttendanceRow[]>();
+
+  // Independent reads — issued in parallel so the page's TTFB is one
+  // Supabase round-trip, not three stacked end to end. (Attendance rows,
+  // the sessions-held count, and this student's marks share no inputs.)
+  const [{ data: rows }, { count: sessionsHeld }, { data: myMarks }] =
+    await Promise.all([
+      // Last 30 days of this student's attendance (RLS scopes to own rows).
+      supabase
+        .from("attendance")
+        .select(
+          "id, entry_time, exit_time, duration_min, status, sessions(course)"
+        )
+        .eq("student_id", profile.id)
+        .gte("entry_time", since)
+        .order("entry_time", { ascending: false })
+        .returns<AttendanceRow[]>(),
+      // Total sessions held in the same window (for attendance %).
+      supabase
+        .from("sessions")
+        .select("id", { count: "exact", head: true })
+        .gte("opened_at", since),
+      // The student's own marks (RLS scopes to own rows).
+      supabase
+        .from("marks")
+        .select("id, course, assessment, score, max_score")
+        .eq("student_id", profile.id)
+        .order("updated_at", { ascending: false }),
+    ]);
 
   const records = rows ?? [];
-
-  // Total sessions held in the same window (for attendance %).
-  const { count: sessionsHeld } = await supabase
-    .from("sessions")
-    .select("id", { count: "exact", head: true })
-    .gte("opened_at", since);
-
   const held = sessionsHeld ?? 0;
   const attended = records.filter((r) => r.status !== "absent").length;
   const pct = held > 0 ? Math.round((attended / held) * 100) : null;
@@ -72,13 +85,6 @@ export default async function StudentDashboard() {
 
   const todayStart = startOfToday();
   const todayRecord = records.find((r) => new Date(r.entry_time) >= todayStart);
-
-  // The student's own marks (RLS scopes to own rows).
-  const { data: myMarks } = await supabase
-    .from("marks")
-    .select("id, course, assessment, score, max_score")
-    .eq("student_id", profile.id)
-    .order("updated_at", { ascending: false });
 
   const marks = myMarks ?? [];
   const avgMarksPct =
