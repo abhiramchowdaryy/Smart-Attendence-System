@@ -86,7 +86,7 @@ export function BiometricScanner({
   useEffect(() => {
     let cancelled = false;
     let stream: MediaStream | null = null;
-    let timer: ReturnType<typeof setInterval> | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
 
     function publish(next: ScanStatus) {
       if (cancelled) return;
@@ -120,13 +120,36 @@ export function BiometricScanner({
       videoRef.current.srcObject = stream;
       publish({ ...IDLE, phase: "searching" });
 
-      timer = setInterval(async () => {
+      // Self-scheduling loop rather than setInterval. A single detection
+      // pass (detector + landmarks + descriptor) can exceed the interval on
+      // a mid-range phone; with setInterval those passes overlap, queue up,
+      // and pin the main thread — the classic symptom is a scanner that
+      // gets progressively jankier the longer it runs and never recovers.
+      // Scheduling the next tick only after the previous one settles keeps
+      // CPU bounded no matter how slow an individual pass is.
+      const tick = async () => {
+        if (cancelled) return;
         const video = videoRef.current;
-        if (!video || video.readyState < 2) return;
+        if (!video || video.readyState < 2) {
+          timer = setTimeout(tick, DETECT_INTERVAL_MS);
+          return;
+        }
 
-        const reading = await detectFace(faceapi, video);
+        let reading: Awaited<ReturnType<typeof detectFace>> = null;
+        try {
+          reading = await detectFace(faceapi, video);
+        } catch {
+          // A transient decode/inference failure should not kill the loop;
+          // treat it as "no face this frame" and keep scanning.
+          reading = null;
+        }
         if (cancelled) return;
 
+        publishReading(reading);
+        if (!cancelled) timer = setTimeout(tick, DETECT_INTERVAL_MS);
+      };
+
+      function publishReading(reading: Awaited<ReturnType<typeof detectFace>>) {
         if (!reading) {
           blink.current = { sawOpen: false, sawClosed: false, done: false };
           publish({
@@ -202,13 +225,18 @@ export function BiometricScanner({
           matched: null,
           descriptor: qualityOk ? serialized : null,
         });
-      }, DETECT_INTERVAL_MS);
+      }
+
+      void tick();
     })();
 
     return () => {
       cancelled = true;
-      if (timer) clearInterval(timer);
+      if (timer) clearTimeout(timer);
       stream?.getTracks().forEach((t) => t.stop());
+      // Detach the stream so the element releases its last decoded frame;
+      // without this the camera indicator can linger on some browsers.
+      if (videoRef.current) videoRef.current.srcObject = null;
     };
   }, [mode]);
 

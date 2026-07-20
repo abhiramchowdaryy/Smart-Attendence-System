@@ -33,39 +33,46 @@ export default async function AdminDashboard() {
   const profile = await requireRole(["admin"]);
   const supabase = await createClient();
 
-  // All users (RLS: admin full access).
-  const { data: users } = await supabase
-    .from("profiles")
-    .select("id, full_name, roll_no, role, created_at")
-    .order("role")
-    .order("full_name")
-    .returns<UserRow[]>();
+  const todayStart = startOfToday();
+  const weekAgo = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
+
+  // These four reads are independent, so they are issued together. Awaiting
+  // them in sequence would serialise four Supabase round-trips into the
+  // page's TTFB for no reason — the slowest one should set the floor, not
+  // the sum of all of them.
+  const [
+    { data: users },
+    { data: geofences },
+    { count: sessionsToday },
+    { data: weekRows },
+  ] = await Promise.all([
+    // All users (RLS: admin full access). face_enrolled is a generated
+    // column (migration 0005) so no descriptor payload crosses the wire.
+    supabase
+      .from("profiles")
+      .select("id, full_name, roll_no, role, created_at, face_enrolled")
+      .order("role")
+      .order("full_name")
+      .returns<UserRow[]>(),
+    supabase
+      .from("geofences")
+      .select("id, room_name, lat, lng, radius_m")
+      .order("room_name")
+      .returns<GeofenceRow[]>(),
+    supabase
+      .from("sessions")
+      .select("id", { count: "exact", head: true })
+      .gte("opened_at", todayStart.toISOString()),
+    supabase
+      .from("attendance")
+      .select("entry_time, status")
+      .gte("entry_time", weekAgo.toISOString())
+      .returns<{ entry_time: string; status: AttendanceStatus }[]>(),
+  ]);
 
   const allUsers = users ?? [];
   const studentCount = allUsers.filter((u) => u.role === "student").length;
   const staffCount = allUsers.filter((u) => u.role !== "student").length;
-
-  // Geofences.
-  const { data: geofences } = await supabase
-    .from("geofences")
-    .select("id, room_name, lat, lng, radius_m")
-    .order("room_name")
-    .returns<GeofenceRow[]>();
-
-  // Sessions today.
-  const todayStart = startOfToday();
-  const { count: sessionsToday } = await supabase
-    .from("sessions")
-    .select("id", { count: "exact", head: true })
-    .gte("opened_at", todayStart.toISOString());
-
-  // Last 7 days of attendance, aggregated per day by status.
-  const weekAgo = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
-  const { data: weekRows } = await supabase
-    .from("attendance")
-    .select("entry_time, status")
-    .gte("entry_time", weekAgo.toISOString())
-    .returns<{ entry_time: string; status: AttendanceStatus }[]>();
 
   const days: DayStatusDatum[] = Array.from({ length: 7 }).map((_, i) => {
     const day = new Date(weekAgo.getTime() + i * 24 * 60 * 60 * 1000);

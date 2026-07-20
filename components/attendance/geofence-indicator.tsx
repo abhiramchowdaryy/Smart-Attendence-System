@@ -53,6 +53,11 @@ export function GeofenceIndicator({
             <MapPin className="relative size-4" />
           </span>
           Inside “{roomName}” · {state.distance} m from center
+          {state.stale && (
+            <span className="text-xs font-normal opacity-70">
+              (last known — GPS signal weak)
+            </span>
+          )}
           <span className="ml-auto font-mono text-xs opacity-70">
             ±{state.accuracy} m
           </span>
@@ -63,6 +68,11 @@ export function GeofenceIndicator({
         <div role="status" className={cn(base, "border-status-absent/40 bg-status-absent/10 text-status-absent")}>
           <MapPinOff className="size-4 shrink-0" aria-hidden="true" />
           Outside geofence — {state.distance} m from “{roomName}”
+          {state.stale && (
+            <span className="text-xs font-normal opacity-70">
+              (last known — GPS signal weak)
+            </span>
+          )}
           <span className="ml-auto font-mono text-xs opacity-70">
             ±{state.accuracy} m
           </span>

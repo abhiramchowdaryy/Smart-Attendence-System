@@ -11,6 +11,8 @@ export interface MarkResult {
   ok: boolean;
   error?: string;
   status?: "present" | "late";
+  /** The late threshold actually applied, so the UI can state it truthfully. */
+  lateAfterMin?: number;
 }
 
 /**
@@ -132,7 +134,7 @@ export async function markEntry(input: {
 
   revalidatePath("/student/dashboard");
   revalidatePath("/student/mark-attendance");
-  return { ok: true, status };
+  return { ok: true, status, lateAfterMin: gps.lateAfterMin };
 }
 
 /** Records exit time; leaving while the session is still open marks "partial". */

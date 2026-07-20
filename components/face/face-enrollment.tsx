@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, LoaderCircle, ScanFace, XCircle } from "lucide-react";
+import { CheckCircle2, LoaderCircle, ScanFace, ShieldCheck, XCircle } from "lucide-react";
 import { BiometricScanner, type ScanStatus } from "@/components/face/biometric-scanner";
 import { Button } from "@/components/ui/button";
 import { enrollFace } from "@/app/student/enroll-face/actions";
@@ -52,16 +52,31 @@ export function FaceEnrollment({ alreadyEnrolled }: { alreadyEnrolled: boolean }
     );
   }
 
+  // Enrolment is first-write-only server-side, so when a face already
+  // exists there is nothing this screen can do — don't open the camera at
+  // all. Starting a face-api detection loop whose result can only be
+  // rejected would burn CPU and battery and prompt for camera permission
+  // for no reason.
+  if (alreadyEnrolled) {
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-lg bg-muted p-8 text-center">
+        <ShieldCheck className="size-10 text-status-present" aria-hidden="true" />
+        <p className="font-display text-lg font-semibold">Face already enrolled</p>
+        <p className="text-sm text-muted-foreground">
+          Your face is registered and used to verify attendance. To replace it
+          — a poor original capture, or a change in appearance — ask an admin
+          to reset your enrolment from the admin dashboard, then enrol again.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Resets are staff-only on purpose: it&apos;s what stops someone else
+          re-registering their face on your account.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
-      {alreadyEnrolled && (
-        <p className="flex items-start gap-2 rounded-md bg-muted p-3 text-sm text-muted-foreground">
-          <ScanFace className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          Your face is already enrolled. Re-enrol below to replace it (e.g. new
-          glasses or a clearer capture).
-        </p>
-      )}
-
       <BiometricScanner mode="enroll" onStatus={setStatus} />
 
       {result.kind === "error" && (
@@ -89,7 +104,7 @@ export function FaceEnrollment({ alreadyEnrolled }: { alreadyEnrolled: boolean }
         ) : (
           <>
             <ScanFace className="size-4" aria-hidden="true" />
-            {alreadyEnrolled ? "Replace enrolled face" : "Save my face"}
+            Save my face
           </>
         )}
       </Button>

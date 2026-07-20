@@ -1,14 +1,10 @@
 import Link from "next/link";
 import { Compass, LogOut } from "lucide-react";
+import { AppNav, type NavItem } from "@/components/app-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { signOut } from "@/app/(auth)/login/actions";
 import type { Role } from "@/lib/utils";
-
-interface NavItem {
-  href: string;
-  label: string;
-}
 
 const NAV: Record<Role, NavItem[]> = {
   student: [
@@ -51,42 +47,42 @@ export function AppShell({
 }) {
   return (
     <div className="flex min-h-dvh flex-col">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:text-primary-foreground"
+      >
+        Skip to content
+      </a>
       <header className="sticky top-0 z-40 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
-        <div className="container flex h-14 items-center gap-4">
+        <div className="container flex h-14 items-center gap-2 sm:gap-4">
           <Link
             href={`/${role}/dashboard`}
-            className="flex items-center gap-2 font-display text-sm font-bold"
+            className="flex shrink-0 items-center gap-2 font-display text-sm font-bold"
           >
             <span className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
               <Compass className="size-4" aria-hidden="true" />
             </span>
-            <span className="hidden sm:inline">PES Smart Attendance</span>
+            <span className="hidden lg:inline">PES Smart Attendance</span>
           </Link>
 
-          <nav aria-label="Main" className="flex flex-1 items-center gap-1">
-            {NAV[role].map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+          <AppNav items={NAV[role]} />
 
-          <span className="hidden text-sm text-muted-foreground md:inline">
+          <span className="hidden shrink-0 text-sm text-muted-foreground xl:inline">
             {userName}
           </span>
-          <ThemeToggle />
-          <form action={signOut}>
-            <Button variant="ghost" size="icon" aria-label="Sign out">
-              <LogOut className="size-5" aria-hidden="true" />
-            </Button>
-          </form>
+          <span className="flex shrink-0 items-center">
+            <ThemeToggle />
+            <form action={signOut}>
+              <Button variant="ghost" size="icon" aria-label="Sign out">
+                <LogOut className="size-5" aria-hidden="true" />
+              </Button>
+            </form>
+          </span>
         </div>
       </header>
-      <main className="container flex-1 py-6">{children}</main>
+      <main id="main" className="container flex-1 py-6">
+        {children}
+      </main>
     </div>
   );
 }
