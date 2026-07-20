@@ -124,9 +124,12 @@ shortfall student (70.83%) sorted top and tinted, class average 77.08%.
 institution avg 73.04%, Cryptography lowest at 55%; numbers reconcile with the
 per-student view.
 
-**Deferred (§7.5 of the spec):** staff CRUD to create/edit courses and enroll
-students via forms. Not required for the demo (the seed provides courses +
-enrollments). Tracked as the remaining piece of this sub-project.
+**§7.5 course/enrolment management — ✅ DONE (follow-up):**
+`/faculty/courses` (faculty + admin) — course catalogue table with upsert
+form (also fixes backfilled placeholder codes) and a per-course roster
+editor. Unchecking deactivates the enrolment (`active = false`) instead of
+deleting, so `enrolled_at` and attendance history survive re-enrolment.
+Verified live as faculty@pes.edu. This closes every item in the spec.
 
 ---
 

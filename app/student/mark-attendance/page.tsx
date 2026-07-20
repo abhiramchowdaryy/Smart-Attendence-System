@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
-import { CalendarX2 } from "lucide-react";
+import Link from "next/link";
+import { CalendarX2, ScanFace } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
+import { isValidDescriptor, type FaceDescriptor } from "@/lib/face";
+import { fetchGpsSettings } from "@/lib/gps-settings";
 import { MarkAttendanceClient } from "@/components/attendance/mark-attendance-client";
 import { GsapReveal } from "@/components/gsap-reveal";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { firstRow } from "@/lib/utils";
@@ -44,6 +48,21 @@ export default async function MarkAttendancePage() {
 
   const fence = firstRow(session.geofences);
 
+  // Is the student's face enrolled? Identity verification needs it.
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("face_embedding")
+    .eq("id", profile.id)
+    .maybeSingle();
+  const enrolledDescriptor: FaceDescriptor | null = isValidDescriptor(
+    me?.face_embedding
+  )
+    ? me!.face_embedding
+    : null;
+
+  // Admin GPS policy (for the client's high-accuracy geolocation request).
+  const gps = await fetchGpsSettings(supabase);
+
   // Does this student already have an entry (without exit) for it?
   const { data: existing } = await supabase
     .from("attendance")
@@ -78,7 +97,33 @@ export default async function MarkAttendancePage() {
             all set. See your dashboard for the details.
           </CardContent>
         </Card>
-      ) : fence ? (
+      ) : !fence ? (
+        <Card>
+          <CardContent className="p-6 text-center text-sm text-muted-foreground">
+            This session has no geofence configured — ask your administrator
+            to assign one.
+          </CardContent>
+        </Card>
+      ) : !enrolledDescriptor && !existing ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
+            <ScanFace className="size-8 text-muted-foreground" aria-hidden="true" />
+            <h2 className="font-display text-lg font-semibold">
+              Enrol your face first
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Attendance verifies your identity against an enrolled face. Set
+              it up once — it takes a few seconds.
+            </p>
+            <Link href="/student/enroll-face">
+              <Button variant="accent">
+                <ScanFace className="size-4" aria-hidden="true" />
+                Enrol my face
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      ) : (
         <MarkAttendanceClient
           session={{
             id: session.id,
@@ -88,14 +133,9 @@ export default async function MarkAttendancePage() {
             radiusM: Number(fence.radius_m),
           }}
           openAttendanceId={existing?.id ?? null}
+          enrolledDescriptor={enrolledDescriptor}
+          highAccuracy={gps.highAccuracy}
         />
-      ) : (
-        <Card>
-          <CardContent className="p-6 text-center text-sm text-muted-foreground">
-            This session has no geofence configured — ask your administrator
-            to assign one.
-          </CardContent>
-        </Card>
       )}
     </GsapReveal>
   );

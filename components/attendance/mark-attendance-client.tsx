@@ -6,7 +6,10 @@ import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { CheckCircle2, DoorOpen, LoaderCircle, XCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FaceCapture, type FaceStatus } from "@/components/attendance/face-capture";
+import {
+  BiometricScanner,
+  type ScanStatus,
+} from "@/components/face/biometric-scanner";
 import { SuccessCheck } from "@/components/attendance/success-check";
 import { GeofenceIndicator } from "@/components/attendance/geofence-indicator";
 import { useGeofence } from "@/hooks/use-geofence";
@@ -25,6 +28,10 @@ interface Props {
   };
   /** Existing open attendance record (entry made, no exit yet), if any. */
   openAttendanceId: string | null;
+  /** The student's enrolled 128-d descriptor, for live identity match. */
+  enrolledDescriptor: number[] | null;
+  /** Admin GPS policy: request high-accuracy geolocation. */
+  highAccuracy: boolean;
 }
 
 type Result =
@@ -32,10 +39,15 @@ type Result =
   | { kind: "success"; message: string }
   | { kind: "error"; message: string };
 
-export function MarkAttendanceClient({ session, openAttendanceId }: Props) {
+export function MarkAttendanceClient({
+  session,
+  openAttendanceId,
+  enrolledDescriptor,
+  highAccuracy,
+}: Props) {
   const router = useRouter();
-  const geo = useGeofence(session.center, session.radiusM);
-  const [face, setFace] = useState<FaceStatus>({ confidence: 0, ok: false });
+  const geo = useGeofence(session.center, session.radiusM, highAccuracy);
+  const [scan, setScan] = useState<ScanStatus | null>(null);
   const [result, setResult] = useState<Result>({ kind: "idle" });
   const [pending, startTransition] = useTransition();
 
@@ -78,19 +90,23 @@ export function MarkAttendanceClient({ session, openAttendanceId }: Props) {
 
   // ── Entry mode ──────────────────────────────────────────────────────
   const geoReady = geo.status === "inside";
-  const ready = face.ok && geoReady && !pending && result.kind !== "success";
+  const faceReady = scan?.phase === "ready" && scan.descriptor !== null;
+  const ready = faceReady && geoReady && !pending && result.kind !== "success";
 
   return (
     <EntryView
       ready={ready}
-      face={face}
+      scan={scan}
       geo={geo}
-      setFace={setFace}
+      setScan={setScan}
       session={session}
+      enrolledDescriptor={enrolledDescriptor}
       result={result}
       pending={pending}
       onMark={() => {
         if (geo.status !== "inside") return;
+        const descriptor = scan?.descriptor;
+        if (!descriptor) return;
         const { coords, accuracy } = geo;
         startTransition(async () => {
           const res = await markEntry({
@@ -98,7 +114,8 @@ export function MarkAttendanceClient({ session, openAttendanceId }: Props) {
             lat: coords.lat,
             lng: coords.lng,
             accuracy,
-            faceConfidence: face.confidence,
+            faceConfidence: scan?.score ?? 0,
+            descriptor,
           });
           setResult(
             res.ok
@@ -111,7 +128,6 @@ export function MarkAttendanceClient({ session, openAttendanceId }: Props) {
                 }
               : { kind: "error", message: res.error ?? "Something went wrong." }
           );
-          // Refresh the server page so it switches into Exit mode.
           if (res.ok) setTimeout(() => router.refresh(), 1600);
         });
       }}
@@ -121,19 +137,21 @@ export function MarkAttendanceClient({ session, openAttendanceId }: Props) {
 
 function EntryView({
   ready,
-  face,
+  scan,
   geo,
-  setFace,
+  setScan,
   session,
+  enrolledDescriptor,
   result,
   pending,
   onMark,
 }: {
   ready: boolean;
-  face: FaceStatus;
+  scan: ScanStatus | null;
   geo: ReturnType<typeof useGeofence>;
-  setFace: (s: FaceStatus) => void;
+  setScan: (s: ScanStatus) => void;
   session: Props["session"];
+  enrolledDescriptor: number[] | null;
   result: Result;
   pending: boolean;
   onMark: () => void;
@@ -151,9 +169,15 @@ function EntryView({
     );
   }, [ready]);
 
+  const faceReady = scan?.phase === "ready";
+
   return (
     <div className="space-y-4">
-      <FaceCapture onStatus={setFace} />
+      <BiometricScanner
+        mode="verify"
+        targetDescriptor={enrolledDescriptor}
+        onStatus={setScan}
+      />
       <GeofenceIndicator state={geo} roomName={session.roomName} />
       <ResultBanner result={result} />
 
@@ -180,10 +204,10 @@ function EntryView({
 
       {!ready && result.kind !== "success" && (
         <p className="text-center text-xs text-muted-foreground">
-          {!face.ok && geo.status !== "inside"
-            ? "Waiting for face detection and location…"
-            : !face.ok
-              ? "Waiting for a stable face detection…"
+          {!faceReady && geo.status !== "inside"
+            ? "Waiting for face verification and location…"
+            : !faceReady
+              ? "Complete the face + blink check above…"
               : "Waiting for you to be inside the geofence…"}
         </p>
       )}

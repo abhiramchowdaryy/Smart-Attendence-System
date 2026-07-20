@@ -14,11 +14,15 @@ const NAV: Record<Role, NavItem[]> = {
   student: [
     { href: "/student/dashboard", label: "Dashboard" },
     { href: "/student/attendance", label: "My Attendance" },
+    { href: "/student/results", label: "Results" },
     { href: "/student/mark-attendance", label: "Mark Attendance" },
+    { href: "/student/enroll-face", label: "Enrol Face" },
+    { href: "/student/profile", label: "Profile" },
   ],
   faculty: [
     { href: "/faculty/dashboard", label: "Dashboard" },
     { href: "/faculty/attendance", label: "Attendance" },
+    { href: "/faculty/courses", label: "Courses" },
     { href: "/faculty/marks", label: "Marks" },
     { href: "/faculty/performance", label: "Performance" },
   ],
@@ -26,8 +30,9 @@ const NAV: Record<Role, NavItem[]> = {
     { href: "/admin/dashboard", label: "Dashboard" },
     { href: "/admin/attendance", label: "Attendance" },
     { href: "/faculty/attendance", label: "By course" },
+    { href: "/faculty/courses", label: "Courses" },
     { href: "/faculty/marks", label: "Marks" },
-    { href: "/faculty/performance", label: "Performance" },
+    { href: "/admin/settings", label: "GPS" },
   ],
 };
 
