@@ -124,6 +124,26 @@
   }
 }
 
+/* Focal entrance for the performance-insight quadrant dot. CSS-only so the
+   card stays a Server Component: on first render the dot transitions from
+   @starting-style (scaled in from its own data point). fill-box keeps the
+   origin on the dot, not the SVG canvas. Unsupported browsers simply show
+   the final state; the reduced-motion reset below neutralises the timing. */
+@layer utilities {
+  .animate-dot-in {
+    transform-box: fill-box;
+    transform-origin: center;
+    transition:
+      transform var(--motion-base) var(--ease-out),
+      opacity var(--motion-base) var(--ease-out);
+
+    @starting-style {
+      transform: scale(0.4);
+      opacity: 0;
+    }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
