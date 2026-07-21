@@ -15,6 +15,7 @@ import { StatusPill } from "@/components/status-pill";
 import { GsapReveal } from "@/components/gsap-reveal";
 import { AttendanceRing } from "@/components/charts/attendance-ring";
 import { DurationBars, type DurationDatum } from "@/components/charts/duration-bars";
+import { PerformanceInsight } from "@/components/performance-insight";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -187,6 +188,10 @@ export default async function StudentDashboard() {
           />
         </div>
       </section>
+
+      {/* AI insight — attendance ↔ performance analysis + prediction.
+          Reuses the attendance % and average marks % already computed above. */}
+      <PerformanceInsight attendancePct={pct} marksPct={avgMarksPct} />
 
       {/* Duration trend — only when there is enough real data to plot */}
       {chartData.length >= 2 && (
