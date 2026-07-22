@@ -11,6 +11,7 @@ const NAV: Record<Role, NavItem[]> = {
     { href: "/student/dashboard", label: "Dashboard" },
     { href: "/student/attendance", label: "My Attendance" },
     { href: "/student/results", label: "Results" },
+    { href: "/student/performance", label: "Performance" },
     { href: "/student/mark-attendance", label: "Mark Attendance" },
     { href: "/student/enroll-face", label: "Enrol Face" },
     { href: "/student/profile", label: "Profile" },

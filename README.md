@@ -20,6 +20,7 @@ TanStack Query + Zustand. All free-tier.
 | Faculty dashboard — open/close sessions, live roster (15s polling), today's KPIs | ✅ |
 | Admin dashboard — users & roles table, geofence CRUD, KPIs, 7-day status chart | ✅ |
 | Marks entry (`/faculty/marks`) + attendance ↔ performance correlation (`/faculty/performance`) | ✅ |
+| **Performance analysis** (`/student/performance`) — attendance × marks per subject, personalised AI suggestion, risk level + expected-grade prediction, recommended action | ✅ |
 | **My Attendance** — per-subject attended/conducted, official + weighted %, 75% eligibility badges, semester filter | ✅ Phase 2 |
 | Faculty course report + admin institution rollup (worst-first, shortfall flags) | ✅ Phase 2 |
 | Courses & enrolment management (`/faculty/courses`) — catalogue CRUD + roster editor | ✅ Phase 2 |
@@ -122,6 +123,7 @@ Exiting while the session is open records **Left early (partial)**.
 app/
   (auth)/login/          sign-in (password + magic link, server actions)
   student/               dashboard · attendance (75% engine) · results (SGPA/CGPA)
+                         performance (attendance×marks + AI suggestion/prediction)
                          mark-attendance (face match + geo) · enroll-face · profile
   faculty/               dashboard · attendance report · courses & rosters · marks
   admin/                 dashboard · attendance rollup · GPS settings
@@ -133,8 +135,9 @@ components/
   charts/                AttendanceRing, GradeDial, DurationBars, …
   eligibility-badge, grade-badge, app-shell, kpi-card, status-pill, …
 hooks/use-geofence.ts    live Haversine geofence state (UX only)
-lib/                     attendance (75% policy) · results (grades/GPA) · face
-                         (match + EAR liveness math) · gps-settings · geo · auth
+lib/                     attendance (75% policy) · results (grades/GPA) ·
+                         performance (attendance×marks analysis + prediction) ·
+                         face (match + EAR liveness math) · gps-settings · geo · auth
                          — each with node --test unit tests
 supabase/                schema.sql · migrations/0001–0005 · seed*.sql
 docs/                    attendance-aggregation-engine design + implementation
