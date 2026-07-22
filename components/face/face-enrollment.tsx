@@ -12,7 +12,15 @@ type Result =
   | { kind: "success" }
   | { kind: "error"; message: string };
 
-export function FaceEnrollment({ alreadyEnrolled }: { alreadyEnrolled: boolean }) {
+export function FaceEnrollment({
+  alreadyEnrolled,
+  serverVerification = false,
+}: {
+  alreadyEnrolled: boolean;
+  /** When true, FACE_SERVICE_URL is set: capture a still and send it so the
+   *  server can compute and store a DeepFace embedding. */
+  serverVerification?: boolean;
+}) {
   const router = useRouter();
   const [status, setStatus] = useState<ScanStatus | null>(null);
   const [result, setResult] = useState<Result>({ kind: "idle" });
@@ -21,6 +29,9 @@ export function FaceEnrollment({ alreadyEnrolled }: { alreadyEnrolled: boolean }
   const canSave =
     status?.phase === "ready" &&
     status.descriptor !== null &&
+    // With server verification on, the still is required — don't enable Save
+    // until we actually have one captured.
+    (!serverVerification || status.imageDataUrl !== null) &&
     !pending &&
     result.kind !== "success";
 
@@ -28,7 +39,10 @@ export function FaceEnrollment({ alreadyEnrolled }: { alreadyEnrolled: boolean }
     const descriptor = status?.descriptor;
     if (!descriptor) return;
     startTransition(async () => {
-      const res = await enrollFace(descriptor);
+      const res = await enrollFace({
+        descriptor,
+        image: serverVerification ? status?.imageDataUrl : null,
+      });
       if (res.ok) {
         setResult({ kind: "success" });
         setTimeout(() => router.refresh(), 1600);
@@ -77,7 +91,11 @@ export function FaceEnrollment({ alreadyEnrolled }: { alreadyEnrolled: boolean }
 
   return (
     <div className="space-y-4">
-      <BiometricScanner mode="enroll" onStatus={setStatus} />
+      <BiometricScanner
+        mode="enroll"
+        captureImage={serverVerification}
+        onStatus={setStatus}
+      />
 
       {result.kind === "error" && (
         <p

@@ -46,6 +46,12 @@ export interface ScanStatus {
   matched: boolean | null;
   /** Latest usable descriptor (serialized), once quality + liveness pass. */
   descriptor: number[] | null;
+  /**
+   * A JPEG still of the accepting frame (data URL), captured only when
+   * `captureImage` is on and the frame is usable — this is what the server-side
+   * DeepFace path re-embeds. Null otherwise.
+   */
+  imageDataUrl: string | null;
 }
 
 const IDLE: ScanStatus = {
@@ -55,6 +61,7 @@ const IDLE: ScanStatus = {
   distance: null,
   matched: null,
   descriptor: null,
+  imageDataUrl: null,
 };
 
 /**
@@ -66,11 +73,14 @@ const IDLE: ScanStatus = {
 export function BiometricScanner({
   mode,
   targetDescriptor,
+  captureImage = false,
   onStatus,
 }: {
   mode: "enroll" | "verify";
   /** Required in verify mode: the enrolled 128-d descriptor. */
   targetDescriptor?: number[] | null;
+  /** Capture a JPEG still of the accepting frame (for server-side DeepFace). */
+  captureImage?: boolean;
   onStatus?: (status: ScanStatus) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -82,16 +92,40 @@ export function BiometricScanner({
   onStatusRef.current = onStatus;
   const targetRef = useRef(targetDescriptor);
   targetRef.current = targetDescriptor;
+  const captureImageRef = useRef(captureImage);
+  captureImageRef.current = captureImage;
 
   useEffect(() => {
     let cancelled = false;
     let stream: MediaStream | null = null;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    // Reused offscreen canvas for still capture — created once, only if needed.
+    let captureCanvas: HTMLCanvasElement | null = null;
 
     function publish(next: ScanStatus) {
       if (cancelled) return;
       setStatus(next);
       onStatusRef.current?.(next);
+    }
+
+    /** JPEG data URL of the current video frame, or null. The raw (unmirrored)
+     *  camera frame is captured — the CSS mirror is display-only. */
+    function captureFrame(video: HTMLVideoElement): string | null {
+      if (!captureImageRef.current) return null;
+      const w = video.videoWidth;
+      const h = video.videoHeight;
+      if (!w || !h) return null;
+      try {
+        if (!captureCanvas) captureCanvas = document.createElement("canvas");
+        captureCanvas.width = w;
+        captureCanvas.height = h;
+        const ctx = captureCanvas.getContext("2d");
+        if (!ctx) return null;
+        ctx.drawImage(video, 0, 0, w, h);
+        return captureCanvas.toDataURL("image/jpeg", 0.85);
+      } catch {
+        return null;
+      }
     }
 
     (async () => {
@@ -159,6 +193,7 @@ export function BiometricScanner({
             distance: null,
             matched: null,
             descriptor: null,
+            imageDataUrl: null,
           });
           return;
         }
@@ -182,6 +217,7 @@ export function BiometricScanner({
             distance: null,
             matched: null,
             descriptor: null,
+            imageDataUrl: null,
           });
           return;
         }
@@ -189,6 +225,7 @@ export function BiometricScanner({
         // ── Post-liveness: quality gate, then capture / match ─────
         const serialized = serializeDescriptor(reading.descriptor);
         const qualityOk = reading.score >= FACE_CONFIDENCE_MIN;
+        const video = videoRef.current;
 
         if (mode === "verify") {
           const target = targetRef.current;
@@ -200,18 +237,23 @@ export function BiometricScanner({
               distance: null,
               matched: false,
               descriptor: serialized,
+              imageDataUrl: null,
             });
             return;
           }
           const distance = euclideanDistance(reading.descriptor, target);
           const matched = isFaceMatch(distance);
+          const ready = matched && qualityOk;
           publish({
-            phase: matched && qualityOk ? "ready" : "no-match",
+            phase: ready ? "ready" : "no-match",
             score: reading.score,
             liveness: true,
             distance,
             matched,
             descriptor: serialized,
+            // Grab the still only on an accepting frame — no point encoding a
+            // JPEG every 350ms tick.
+            imageDataUrl: ready && video ? captureFrame(video) : null,
           });
           return;
         }
@@ -224,6 +266,7 @@ export function BiometricScanner({
           distance: null,
           matched: null,
           descriptor: qualityOk ? serialized : null,
+          imageDataUrl: qualityOk && video ? captureFrame(video) : null,
         });
       }
 

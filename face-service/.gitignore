@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Local env — never commit real secrets
+.env
+.env.local
+
+# DeepFace model weight cache
+.deepface/
+weights/

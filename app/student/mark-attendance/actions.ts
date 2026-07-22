@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { distanceMeters } from "@/lib/geo";
 import { euclideanDistance, isFaceMatch, isValidDescriptor } from "@/lib/face";
+import {
+  faceServiceConfigured,
+  isValidServerEmbedding,
+  verifyFace,
+} from "@/lib/face-service";
 import { fetchGpsSettings } from "@/lib/gps-settings";
 import { FACE_CONFIDENCE_MIN, firstRow } from "@/lib/utils";
 
@@ -27,6 +32,12 @@ export async function markEntry(input: {
   faceConfidence: number;
   /** Live 128-d face descriptor, matched server-side against enrolment. */
   descriptor: number[];
+  /**
+   * Live still frame (data URL). Sent when FACE_SERVICE_URL is configured so
+   * the DeepFace service re-embeds the raw pixels server-side — the
+   * authoritative identity check that a forged descriptor can't pass.
+   */
+  image?: string | null;
 }): Promise<MarkResult> {
   const supabase = await createClient();
 
@@ -49,16 +60,17 @@ export async function markEntry(input: {
   }
 
   // ── Server-side face identity check ────────────────────────────────
-  // The browser produces the live descriptor, but the match decision is
-  // made here against the enrolled descriptor — the client cannot assert
-  // its own identity. (Producing a genuine live descriptor still relies on
-  // the browser; the DeepFace service seam is the path to full hardening.)
+  // The browser produces the live descriptor, but the match decision is made
+  // here against the enrolled descriptor — the client cannot assert its own
+  // identity. When the DeepFace service is configured and the student has a
+  // server embedding, we additionally re-verify the live *image* on the server
+  // (raw pixels re-embedded there), which a forged descriptor cannot pass.
   if (!isValidDescriptor(input.descriptor)) {
     return { ok: false, error: "Face capture was invalid — please retry." };
   }
   const { data: me } = await supabase
     .from("profiles")
-    .select("face_embedding")
+    .select("face_embedding, face_embedding_server")
     .eq("id", user.id)
     .single();
 
@@ -74,6 +86,35 @@ export async function markEntry(input: {
       ok: false,
       error: "Face does not match your enrolment — please try again.",
     };
+  }
+
+  // ── Authoritative server-side re-verification (DeepFace) ───────────
+  // Only when the service is on AND a server embedding exists (students
+  // enrolled before the service was configured have none, and fall back to the
+  // descriptor match above — non-breaking).
+  if (faceServiceConfigured() && isValidServerEmbedding(me!.face_embedding_server)) {
+    if (!input.image) {
+      return { ok: false, error: "Camera capture was missing — please retry." };
+    }
+    const verified = await verifyFace({
+      image: input.image,
+      referenceEmbedding: me!.face_embedding_server,
+    });
+    if (!verified.ok) {
+      return {
+        ok: false,
+        error:
+          verified.status === 422
+            ? "Couldn't read a single clear face — face the camera in good light and retry."
+            : "Face verification service is unavailable — please try again shortly.",
+      };
+    }
+    if (!verified.data.verified) {
+      return {
+        ok: false,
+        error: "Face does not match your enrolment — please try again.",
+      };
+    }
   }
 
   // Load the session and its geofence.

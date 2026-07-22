@@ -27,7 +27,8 @@ TanStack Query + Zustand. All free-tier.
 | **GPS settings** (`/admin/settings`) — geofence grace, late window, high-accuracy toggle | ✅ Phase 2 |
 | **Results** — ISA/ESA marks, letter grades, SGPA/CGPA dials | ✅ Phase 2 |
 | **Profile** — personal/family/address details, masked Aadhaar (last 4 only) | ✅ Phase 2 |
-| DeepFace server verification, Twilio SMS, PostGIS, Realtime, map editor, CSV/PDF export | Later (seams in place) |
+| **DeepFace server verification** — optional FastAPI service; live *image* re-embedded server-side (`FACE_SERVICE_URL`) | ✅ Phase 2+ (opt-in) |
+| Twilio SMS, PostGIS, Realtime, map editor, CSV/PDF export | Later (seams in place) |
 
 ## Setup (≈10 minutes)
 
@@ -42,9 +43,9 @@ npm run download-models   # detector + landmarks + recognition nets → public/m
 
 1. [supabase.com](https://supabase.com) → New project (free tier).
 2. SQL Editor → paste **`supabase/schema.sql`** → Run.
-3. Run each file in **`supabase/migrations/`** in order (0001 → 0005):
+3. Run each file in **`supabase/migrations/`** in order (0001 → 0006):
    courses + enrolments, attendance summary view, GPS settings,
-   student details, face-enrolment flag.
+   student details, face-enrolment flag, server-side face embedding.
 4. Open **`supabase/seed.sql`**, **edit the geofence lat/lng to your current
    location** (Google Maps → right-click → copy coordinates), then run it.
 5. After creating users (step 4 below), run **`supabase/seed_phase2.sql`**
@@ -125,7 +126,7 @@ app/
                          mark-attendance (face match + geo) · enroll-face · profile
   faculty/               dashboard · attendance report · courses & rosters · marks
   admin/                 dashboard · attendance rollup · GPS settings
-  api/face/verify/       seam for the Python DeepFace service (501 until set)
+  api/face/verify/       HTTP seam to the DeepFace service (501 until FACE_SERVICE_URL set)
 components/
   ui/                    button, card, input, label, badge, skeleton
   attendance/            GeofenceIndicator, MarkAttendanceClient
@@ -136,7 +137,9 @@ hooks/use-geofence.ts    live Haversine geofence state (UX only)
 lib/                     attendance (75% policy) · results (grades/GPA) · face
                          (match + EAR liveness math) · gps-settings · geo · auth
                          — each with node --test unit tests
-supabase/                schema.sql · migrations/0001–0005 · seed*.sql
+supabase/                schema.sql · migrations/0001–0006 · seed*.sql
+face-service/            optional FastAPI + DeepFace microservice (server-side
+                         verification) — Dockerfile + Render blueprint + tests
 docs/                    attendance-aggregation-engine design + implementation
                          plan · STARTER_REFERENCE.md
 scripts/download-models.mjs
@@ -165,12 +168,29 @@ framework needed).
    (**Reset** in the admin users table), which keeps a human at the point
    where trust is established.
 
-Known limitation (documented for the report): the *live descriptor* is
-still produced in the browser, so a sophisticated attacker who can forge
-WebRTC frames could bypass it — the `FACE_SERVICE_URL` DeepFace seam is
-the path to fully server-verified frames. Geofence + per-session
-uniqueness + blink liveness are the active anti-proxy layers. Face
-matching needs a real camera — it cannot be exercised in headless CI.
+Known limitation (documented for the report): in the **default** build the
+*live descriptor* is produced in the browser, so a sophisticated attacker
+who can forge WebRTC frames could bypass it. Setting `FACE_SERVICE_URL`
+closes this: the browser then sends the **image**, and the embedding is
+computed on the server by the DeepFace service (`face-service/`), so the
+client can no longer assert an identity the server never saw pixels for.
+Enrolment stores a server-computed embedding
+(`profiles.face_embedding_server`); mark-attendance re-embeds the live frame
+and compares. Students enrolled before the service was turned on keep working
+on the descriptor match until they re-enrol (non-breaking fallback).
+Geofence + per-session uniqueness + blink liveness are the active anti-proxy
+layers either way. Face matching needs a real camera — it cannot be exercised
+in headless CI.
+
+### Enabling server-side DeepFace verification (optional)
+
+1. Run or deploy the Python service in [`face-service/`](face-service/README.md)
+   (FastAPI + DeepFace; free-tier Render blueprint included).
+2. Set `FACE_SERVICE_URL` (and `FACE_SERVICE_TOKEN`, matching the service) in
+   the Next.js app's environment.
+3. Apply migration `0006_face_embedding_server.sql`.
+4. Students re-enrol once so a server embedding is captured; from then on the
+   authoritative check runs on server-side pixels.
 
 ## Roadmap (remaining)
 
@@ -179,8 +199,6 @@ identity match with blink liveness, admin GPS policy, results (grades,
 SGPA/CGPA), rich profile, and course/enrolment management — see the table
 above. Still outstanding:
 
-- Python FastAPI + DeepFace verification on Render (seam: `FACE_SERVICE_URL`),
-  moving frame capture fully server-side
 - Twilio parent SMS via Supabase Edge Function (target: `profiles.parent_phone`;
   note: SMS to Indian numbers needs TRAI/DLT sender + template registration) —
   wire to the attendance-shortfall flags
