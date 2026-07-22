@@ -6,13 +6,12 @@ import { requireRole } from "@/lib/auth";
 import {
   fetchCourseAttendance,
   isEligible,
-  formatPct,
   attendedCount,
   type AttendanceSummaryRow,
 } from "@/lib/attendance";
 import { KpiCard } from "@/components/kpi-card";
 import { GsapReveal } from "@/components/gsap-reveal";
-import { EligibilityBadge } from "@/components/eligibility-badge";
+import { CourseRoster, type RosterRow } from "@/components/faculty/course-roster";
 import {
   Card,
   CardContent,
@@ -74,6 +73,19 @@ export default async function FacultyAttendance({
   const sorted = [...rows].sort(
     (a, b) => (a.official_pct ?? 200) - (b.official_pct ?? 200)
   );
+
+  const rosterRows: RosterRow[] = sorted.map((r) => {
+    const p = nameById.get(r.student_id);
+    return {
+      studentId: r.student_id,
+      name: p?.full_name ?? "—",
+      roll: p?.roll_no ?? null,
+      attended: attendedCount(r),
+      conducted: r.conducted,
+      officialPct: r.official_pct,
+      weightedPct: r.weighted_pct,
+    };
+  });
 
   const withData = rows.filter((r) => r.conducted > 0);
   const belowCount = withData.filter((r) => !isEligible(r.official_pct)).length;
@@ -170,67 +182,16 @@ export default async function FacultyAttendance({
                 </span>
               </CardTitle>
               <CardDescription>
-                Students below 75% are highlighted and sorted to the top.
+                Search by name or roll number, and export the roster to
+                Excel/CSV or PDF. Students below 75% are sorted to the top.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {rows.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No students are enrolled in this course yet.
-                </p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
-                        <th scope="col" className="py-2 pr-4 font-medium">Student</th>
-                        <th scope="col" className="py-2 pr-4 font-medium">Roll no</th>
-                        <th scope="col" className="py-2 pr-4 font-medium">Attended</th>
-                        <th scope="col" className="py-2 pr-4 font-medium">Official %</th>
-                        <th scope="col" className="py-2 pr-4 font-medium">Weighted %</th>
-                        <th scope="col" className="py-2 font-medium">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sorted.map((r) => {
-                        const p = nameById.get(r.student_id);
-                        const short =
-                          r.conducted > 0 && !isEligible(r.official_pct);
-                        return (
-                          <tr
-                            key={r.student_id}
-                            className={cn(
-                              "border-b transition-colors last:border-0 hover:bg-muted/50",
-                              short && "bg-status-absent/5"
-                            )}
-                          >
-                            <td className="py-2.5 pr-4 font-medium">
-                              {p?.full_name ?? "—"}
-                            </td>
-                            <td className="py-2.5 pr-4 font-mono text-xs">
-                              {p?.roll_no ?? "—"}
-                            </td>
-                            <td className="py-2.5 pr-4 font-mono text-xs tabular-nums">
-                              {r.conducted === 0
-                                ? "—"
-                                : `${attendedCount(r)}/${r.conducted}`}
-                            </td>
-                            <td className="py-2.5 pr-4 font-mono text-xs tabular-nums">
-                              {formatPct(r.official_pct)}
-                            </td>
-                            <td className="py-2.5 pr-4 font-mono text-xs tabular-nums text-muted-foreground">
-                              {formatPct(r.weighted_pct)}
-                            </td>
-                            <td className="py-2.5">
-                              <EligibilityBadge officialPct={r.official_pct} />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              <CourseRoster
+                rows={rosterRows}
+                courseName={selectedCourse?.name ?? "Course"}
+                courseCode={selected ?? ""}
+              />
             </CardContent>
           </Card>
         </>

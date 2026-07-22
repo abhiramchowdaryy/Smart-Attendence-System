@@ -10,6 +10,7 @@ import {
 } from "@/lib/attendance";
 import { KpiCard } from "@/components/kpi-card";
 import { GsapReveal } from "@/components/gsap-reveal";
+import { ExportMenu } from "@/components/export-menu";
 import {
   Card,
   CardContent,
@@ -18,6 +19,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import type { Cell } from "@/lib/export";
 
 export const metadata: Metadata = { title: "Attendance Overview" };
 
@@ -50,6 +52,23 @@ export default async function AdminAttendance() {
         ) / 100
       : null;
   const worst = coursesWithData[0] ?? null; // rollups are sorted worst-first
+
+  const exportColumns = [
+    "Course",
+    "Code",
+    "Semester",
+    "Enrolled",
+    "Below 75%",
+    "Average %",
+  ];
+  const exportRows: Cell[][] = rollups.map((r) => [
+    r.course_name,
+    r.course_code,
+    r.semester,
+    r.enrolled,
+    r.belowThreshold,
+    r.avgOfficialPct,
+  ]);
 
   return (
     <GsapReveal className="space-y-6">
@@ -118,12 +137,20 @@ export default async function AdminAttendance() {
 
           {/* Per-course rollup */}
           <Card>
-            <CardHeader>
-              <CardTitle>Courses</CardTitle>
-              <CardDescription>
-                Lowest average attendance first. Courses with students below
-                75% are flagged.
-              </CardDescription>
+            <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+              <div className="space-y-1.5">
+                <CardTitle>Courses</CardTitle>
+                <CardDescription>
+                  Lowest average attendance first. Courses with students below
+                  75% are flagged.
+                </CardDescription>
+              </div>
+              <ExportMenu
+                title="Institution attendance"
+                subtitle={`Exported ${new Date().toLocaleDateString()}`}
+                columns={exportColumns}
+                rows={exportRows}
+              />
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
