@@ -12,6 +12,8 @@ export interface GpsSettings {
   lateAfterMin: number;
   /** Request high-accuracy geolocation on the client. */
   highAccuracy: boolean;
+  /** Campus network IP prefixes; on-network requests bypass a weak GPS fix. */
+  wifiNetworks: string[];
 }
 
 /** Used when the settings row is missing (keeps the app working). */
@@ -19,6 +21,7 @@ export const DEFAULT_GPS_SETTINGS: GpsSettings = {
   accuracyGraceM: 25,
   lateAfterMin: 10,
   highAccuracy: true,
+  wifiNetworks: [],
 };
 
 export const GPS_LIMITS = {
@@ -30,6 +33,7 @@ interface GpsSettingsRow {
   accuracy_grace_m: number;
   late_after_min: number;
   high_accuracy: boolean;
+  wifi_networks: string[] | null;
 }
 
 /** Read the single GPS policy row, falling back to defaults. */
@@ -38,7 +42,7 @@ export async function fetchGpsSettings(
 ): Promise<GpsSettings> {
   const { data } = await supabase
     .from("gps_settings")
-    .select("accuracy_grace_m, late_after_min, high_accuracy")
+    .select("accuracy_grace_m, late_after_min, high_accuracy, wifi_networks")
     .eq("id", true)
     .maybeSingle<GpsSettingsRow>();
 
@@ -47,6 +51,7 @@ export async function fetchGpsSettings(
     accuracyGraceM: data.accuracy_grace_m,
     lateAfterMin: data.late_after_min,
     highAccuracy: data.high_accuracy,
+    wifiNetworks: data.wifi_networks ?? [],
   };
 }
 

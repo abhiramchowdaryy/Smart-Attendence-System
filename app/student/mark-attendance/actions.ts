@@ -1,10 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { distanceMeters } from "@/lib/geo";
 import { euclideanDistance, isFaceMatch, isValidDescriptor } from "@/lib/face";
 import { fetchGpsSettings } from "@/lib/gps-settings";
+import { clientIp, ipMatchesNetwork } from "@/lib/network";
 import { FACE_CONFIDENCE_MIN, firstRow } from "@/lib/utils";
 
 export interface MarkResult {
@@ -104,22 +106,36 @@ export async function markEntry(input: {
   const allowed =
     Number(fence.radius_m) +
     Math.min(Math.max(input.accuracy, 0), gps.accuracyGraceM);
-  if (distance > allowed) {
+  const gpsOk = distance <= allowed;
+
+  // College-Wi-Fi fallback: a weak GPS fix outside the geofence is still
+  // accepted when the request comes from the campus network (admin-listed
+  // IP prefix). Records which path verified the location.
+  let verifiedVia: "gps" | "network" | null = gpsOk ? "gps" : null;
+  if (!gpsOk) {
+    const ip = clientIp((await headers()).get("x-forwarded-for"));
+    if (ipMatchesNetwork(ip, gps.wifiNetworks)) verifiedVia = "network";
+  }
+  if (verifiedVia === null) {
     return {
       ok: false,
-      error: `You appear to be ${Math.round(distance)} m from the classroom (limit ${Math.round(allowed)} m). Move inside the geofence and retry.`,
+      error: `You appear to be ${Math.round(distance)} m from the classroom (limit ${Math.round(allowed)} m), and not on the college network. Move inside the geofence and retry.`,
     };
   }
 
   // Late if entering well after the session opened.
   const openedAt = new Date(session.opened_at).getTime();
-  const status =
-    Date.now() - openedAt > gps.lateAfterMin * 60_000 ? "late" : "present";
+  const lateEntry = Date.now() - openedAt > gps.lateAfterMin * 60_000;
+  const status = lateEntry ? "late" : "present";
 
   const { error: insertError } = await supabase.from("attendance").insert({
     session_id: session.id,
     student_id: user.id,
     status,
+    late_entry: lateEntry,
+    gps_verified: gpsOk,
+    face_verified: true,
+    verified_via: verifiedVia,
     face_confidence: input.faceConfidence,
     entry_lat: input.lat,
     entry_lng: input.lng,
@@ -157,14 +173,16 @@ export async function markExit(attendanceId: string): Promise<MarkResult> {
   if (record.exit_time) return { ok: false, error: "Exit already recorded." };
 
   const session = firstRow(record.sessions);
-  const leftEarly = session && !session.closed_at;
+  const leftEarly = Boolean(session && !session.closed_at);
 
   const { error } = await supabase
     .from("attendance")
     .update({
       exit_time: new Date().toISOString(),
-      // Leaving before the session closes downgrades to "partial",
-      // but a "late" entry stays late.
+      // Record the early-exit flag explicitly (PDF "Early Exit (Yes/No)").
+      ...(leftEarly ? { early_exit: true } : {}),
+      // Leaving before the session closes downgrades a clean present to
+      // "partial" for the summary weighting; a "late" entry stays late.
       ...(leftEarly && record.status === "present" ? { status: "partial" } : {}),
     })
     .eq("id", attendanceId)

@@ -70,6 +70,23 @@ export function GpsSettingsForm({ settings }: { settings: GpsSettings }) {
         </span>
       </label>
 
+      <div className="space-y-2">
+        <Label htmlFor="wifi_networks">College Wi-Fi networks (IP prefixes)</Label>
+        <textarea
+          id="wifi_networks"
+          name="wifi_networks"
+          rows={2}
+          defaultValue={settings.wifiNetworks.join(", ")}
+          placeholder="203.0.113., 10.20."
+          className="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        <p className="text-xs text-muted-foreground">
+          Comma- or space-separated public IP prefixes for the campus network.
+          When GPS is weak, a request from one of these still verifies the
+          location (the college-Wi-Fi fallback). Leave blank to disable.
+        </p>
+      </div>
+
       {state.error && (
         <p
           role="alert"

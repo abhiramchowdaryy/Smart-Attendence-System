@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { clampSetting } from "@/lib/gps-settings";
+import { normalizePrefixes } from "@/lib/network";
 
 export interface SettingsResult {
   ok?: boolean;
@@ -35,12 +36,18 @@ export async function updateGpsSettings(
   );
   const highAccuracy = formData.get("high_accuracy") === "on";
 
+  // Split the free-text field on commas/whitespace into clean IP prefixes.
+  const wifiNetworks = normalizePrefixes(
+    String(formData.get("wifi_networks") ?? "").split(/[\s,]+/)
+  );
+
   const { error } = await supabase
     .from("gps_settings")
     .update({
       accuracy_grace_m: accuracyGraceM,
       late_after_min: lateAfterMin,
       high_accuracy: highAccuracy,
+      wifi_networks: wifiNetworks,
       updated_at: new Date().toISOString(),
       updated_by: user.id,
     })

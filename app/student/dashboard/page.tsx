@@ -5,8 +5,10 @@ import {
   CalendarCheck2,
   CalendarDays,
   ListChecks,
+  MapPin,
   ScanFace,
   Timer,
+  Wifi,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
@@ -23,7 +25,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { startOfToday, type AttendanceStatus } from "@/lib/utils";
+import { cn, startOfToday, type AttendanceStatus } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Student Dashboard" };
 
@@ -33,6 +35,9 @@ interface AttendanceRow {
   exit_time: string | null;
   duration_min: number | null;
   status: AttendanceStatus;
+  gps_verified: boolean | null;
+  face_verified: boolean | null;
+  verified_via: "gps" | "network" | null;
   sessions: { course: string } | null;
 }
 
@@ -51,7 +56,7 @@ export default async function StudentDashboard() {
       supabase
         .from("attendance")
         .select(
-          "id, entry_time, exit_time, duration_min, status, sessions(course)"
+          "id, entry_time, exit_time, duration_min, status, gps_verified, face_verified, verified_via, sessions(course)"
         )
         .eq("student_id", profile.id)
         .gte("entry_time", since)
@@ -285,6 +290,7 @@ export default async function StudentDashboard() {
                     <th scope="col" className="py-2 pr-4 font-medium">Entry</th>
                     <th scope="col" className="py-2 pr-4 font-medium">Exit</th>
                     <th scope="col" className="py-2 pr-4 font-medium">Duration</th>
+                    <th scope="col" className="py-2 pr-4 font-medium">Verified</th>
                     <th scope="col" className="py-2 font-medium">Status</th>
                   </tr>
                 </thead>
@@ -316,6 +322,13 @@ export default async function StudentDashboard() {
                       <td className="py-2.5 pr-4">
                         {r.duration_min !== null ? `${r.duration_min} min` : "—"}
                       </td>
+                      <td className="py-2.5 pr-4">
+                        <VerifyMarks
+                          gps={r.gps_verified}
+                          face={r.face_verified}
+                          via={r.verified_via}
+                        />
+                      </td>
                       <td className="py-2.5">
                         <StatusPill status={r.status} />
                       </td>
@@ -328,5 +341,48 @@ export default async function StudentDashboard() {
         </CardContent>
       </Card>
     </GsapReveal>
+  );
+}
+
+/** Location + face verification indicators for one attendance row. */
+function VerifyMarks({
+  gps,
+  face,
+  via,
+}: {
+  gps: boolean | null;
+  face: boolean | null;
+  via: "gps" | "network" | null;
+}) {
+  const locVerified = Boolean(gps) || via === "network";
+  const LocIcon = via === "network" ? Wifi : MapPin;
+  const locLabel = via === "network" ? "Wi-Fi" : "GPS";
+  return (
+    <div className="flex items-center gap-2.5">
+      <span
+        title={
+          locVerified
+            ? `Location verified via ${locLabel}`
+            : "Location not verified"
+        }
+        className={cn(
+          "inline-flex items-center gap-1 text-xs",
+          locVerified ? "text-status-present" : "text-muted-foreground"
+        )}
+      >
+        <LocIcon className="size-3.5" aria-hidden="true" />
+        {locVerified ? locLabel : "—"}
+      </span>
+      <span
+        title={face ? "Face verified" : "Face not verified"}
+        className={cn(
+          "inline-flex items-center gap-1 text-xs",
+          face ? "text-status-present" : "text-muted-foreground"
+        )}
+      >
+        <ScanFace className="size-3.5" aria-hidden="true" />
+        {face ? "Face" : "—"}
+      </span>
+    </div>
   );
 }

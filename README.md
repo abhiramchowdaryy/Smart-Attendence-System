@@ -28,6 +28,7 @@ TanStack Query + Zustand. All free-tier.
 | **Manage departments + holidays** (`/admin/institution`) — admin master-data CRUD | ✅ |
 | **Monthly report** (`/admin/monthly`) — marks per month by status, chart + table + export | ✅ |
 | **Timetable** (`/admin/timetable`) — weekly schedule, admin-editable grid | ✅ |
+| **Attendance verification detail** — stores Late-Entry / Early-Exit / GPS / Face flags; **college-Wi-Fi (network IP) fallback** when GPS is weak; dashboard shows per-row Location + Face verified | ✅ |
 | Courses & enrolment management (`/faculty/courses`) — catalogue CRUD + roster editor | ✅ Phase 2 |
 | **Face enrolment + identity verification** — 128-d descriptor, server-side match, blink liveness, **multiple-face rejection** | ✅ Phase 2 |
 | **GPS settings** (`/admin/settings`) — geofence grace, late window, high-accuracy toggle | ✅ Phase 2 |
@@ -48,10 +49,11 @@ npm run download-models   # detector + landmarks + recognition nets → public/m
 
 1. [supabase.com](https://supabase.com) → New project (free tier).
 2. SQL Editor → paste **`supabase/schema.sql`** → Run.
-3. Run each file in **`supabase/migrations/`** in order (0001 → 0009):
+3. Run each file in **`supabase/migrations/`** in order (0001 → 0010):
    courses + enrolments, attendance summary view, GPS settings,
    student details, face-enrolment flag, login-by-register-number,
-   attendance corrections, departments + holidays, timetable.
+   attendance corrections, departments + holidays, timetable,
+   attendance verification fields.
 4. Open **`supabase/seed.sql`**, **edit the geofence lat/lng to your current
    location** (Google Maps → right-click → copy coordinates), then run it.
 5. After creating users (step 4 below), run **`supabase/seed_phase2.sql`**
