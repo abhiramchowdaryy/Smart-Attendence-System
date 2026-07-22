@@ -39,28 +39,48 @@ const toPoints = (pts: { x: number; y: number }[]): Point[] =>
   pts.map((p) => ({ x: p.x, y: p.y }));
 
 /**
- * Detect the single most prominent face with landmarks + descriptor.
- * Returns null when no face is found.
+ * Outcome of one detection pass.
+ *  - "none": no face in frame.
+ *  - "multiple": more than one face — rejected, so a bystander (or a phone
+ *    held up next to the real person) cannot be enrolled or matched.
+ *  - "ok": exactly one face, with its landmarks + descriptor.
  */
-export async function detectFace(
+export type DetectResult =
+  | { kind: "none" }
+  | { kind: "multiple"; count: number }
+  | { kind: "ok"; reading: FaceReading };
+
+/**
+ * Detect ALL faces (with landmarks + descriptors) and collapse to a single
+ * outcome. We use detectAllFaces rather than detectSingleFace precisely so
+ * we can *see* when more than one face is present and reject it — the PDF's
+ * "reject multiple faces in front of the camera" rule. With one face the
+ * cost is the same as a single-face pass.
+ */
+export async function detectFaces(
   faceapi: FaceApi,
   video: HTMLVideoElement
-): Promise<FaceReading | null> {
+): Promise<DetectResult> {
   const options = new faceapi.TinyFaceDetectorOptions({
     inputSize: 320,
     scoreThreshold: 0.4,
   });
-  const result = await faceapi
-    .detectSingleFace(video, options)
+  const results = await faceapi
+    .detectAllFaces(video, options)
     .withFaceLandmarks()
-    .withFaceDescriptor();
+    .withFaceDescriptors();
 
-  if (!result) return null;
+  if (results.length === 0) return { kind: "none" };
+  if (results.length > 1) return { kind: "multiple", count: results.length };
 
+  const r = results[0];
   return {
-    score: result.detection.score,
-    descriptor: result.descriptor,
-    leftEye: toPoints(result.landmarks.getLeftEye()),
-    rightEye: toPoints(result.landmarks.getRightEye()),
+    kind: "ok",
+    reading: {
+      score: r.detection.score,
+      descriptor: r.descriptor,
+      leftEye: toPoints(r.landmarks.getLeftEye()),
+      rightEye: toPoints(r.landmarks.getRightEye()),
+    },
   };
 }

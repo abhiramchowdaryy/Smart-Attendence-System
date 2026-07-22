@@ -19,7 +19,7 @@ import {
   matchConfidence,
   serializeDescriptor,
 } from "@/lib/face";
-import { loadFaceModels, detectFace } from "@/lib/face-client";
+import { loadFaceModels, detectFaces, type DetectResult } from "@/lib/face-client";
 
 /** EAR above this = eye open (hysteresis above the closed threshold). */
 const OPEN_EAR = 0.28;
@@ -30,6 +30,7 @@ export type ScanPhase =
   | "no-models"
   | "denied"
   | "searching"
+  | "multiple"
   | "blink"
   | "no-match"
   | "ready";
@@ -135,22 +136,22 @@ export function BiometricScanner({
           return;
         }
 
-        let reading: Awaited<ReturnType<typeof detectFace>> = null;
+        let result: DetectResult = { kind: "none" };
         try {
-          reading = await detectFace(faceapi, video);
+          result = await detectFaces(faceapi, video);
         } catch {
           // A transient decode/inference failure should not kill the loop;
           // treat it as "no face this frame" and keep scanning.
-          reading = null;
+          result = { kind: "none" };
         }
         if (cancelled) return;
 
-        publishReading(reading);
+        publishReading(result);
         if (!cancelled) timer = setTimeout(tick, DETECT_INTERVAL_MS);
       };
 
-      function publishReading(reading: Awaited<ReturnType<typeof detectFace>>) {
-        if (!reading) {
+      function publishReading(result: DetectResult) {
+        if (result.kind === "none") {
           blink.current = { sawOpen: false, sawClosed: false, done: false };
           publish({
             phase: "searching",
@@ -162,6 +163,24 @@ export function BiometricScanner({
           });
           return;
         }
+
+        // More than one face → reject outright and restart liveness. A
+        // second person (or a held-up photo beside the real face) can never
+        // produce a capture or a match.
+        if (result.kind === "multiple") {
+          blink.current = { sawOpen: false, sawClosed: false, done: false };
+          publish({
+            phase: "multiple",
+            score: 0,
+            liveness: false,
+            distance: null,
+            matched: null,
+            descriptor: null,
+          });
+          return;
+        }
+
+        const reading = result.reading;
 
         // ── Blink liveness state machine ──────────────────────────
         const ear = blinkRatio(reading.leftEye, reading.rightEye);
@@ -256,7 +275,7 @@ function ScannerView({
   const borderTone =
     status.phase === "ready"
       ? "border-status-present"
-      : status.phase === "no-match"
+      : status.phase === "no-match" || status.phase === "multiple"
         ? "border-status-absent"
         : status.phase === "blink"
           ? "border-status-late animate-pulse-ring"
@@ -311,6 +330,16 @@ function ScannerView({
             />
           )}
 
+        {/* Multiple-faces warning */}
+        {status.phase === "multiple" && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
+            <span className="flex items-center gap-1.5 rounded-full bg-status-absent/90 px-3 py-1.5 text-sm font-medium text-white">
+              <ShieldAlert className="size-4" aria-hidden="true" />
+              Multiple faces — only you should be in frame
+            </span>
+          </div>
+        )}
+
         {/* Blink prompt */}
         {status.phase === "blink" && !status.liveness && (
           <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
@@ -348,6 +377,11 @@ function StatusLine({
       break;
     case "searching":
       text = "Position your face inside the oval";
+      break;
+    case "multiple":
+      Icon = ShieldAlert;
+      tone = "text-status-absent";
+      text = "Multiple faces detected — make sure only you are in frame";
       break;
     case "blink":
       Icon = Eye;

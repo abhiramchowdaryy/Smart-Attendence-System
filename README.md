@@ -29,7 +29,7 @@ TanStack Query + Zustand. All free-tier.
 | **Monthly report** (`/admin/monthly`) — marks per month by status, chart + table + export | ✅ |
 | **Timetable** (`/admin/timetable`) — weekly schedule, admin-editable grid | ✅ |
 | Courses & enrolment management (`/faculty/courses`) — catalogue CRUD + roster editor | ✅ Phase 2 |
-| **Face enrolment + identity verification** — 128-d descriptor, server-side match, blink liveness | ✅ Phase 2 |
+| **Face enrolment + identity verification** — 128-d descriptor, server-side match, blink liveness, **multiple-face rejection** | ✅ Phase 2 |
 | **GPS settings** (`/admin/settings`) — geofence grace, late window, high-accuracy toggle | ✅ Phase 2 |
 | **Results** — ISA/ESA marks, letter grades, SGPA/CGPA dials | ✅ Phase 2 |
 | **Profile** — personal/family/address details, masked Aadhaar (last 4 only) | ✅ Phase 2 |
@@ -165,8 +165,11 @@ framework needed).
    the browser UI is presentation only.
 4. **Postgres RLS** — students can only read/write their own rows; only
    staff touch marks/courses/settings; users cannot self-promote.
-5. **Liveness** — a blink (eye-aspect-ratio transition) is required before
-   any face is accepted, defeating a static held-up photo.
+5. **Liveness + single-face** — a blink (eye-aspect-ratio transition) is
+   required before any face is accepted, defeating a static held-up photo;
+   and the scanner detects *all* faces and refuses when more than one is in
+   frame, so a bystander (or a phone held up beside the real person) can
+   neither enrol nor match.
 6. **First-write-only face enrolment** — `profiles.face_embedding` can be
    written once and never silently overwritten (the update is guarded by
    `.is("face_embedding", null)`, so concurrent submits cannot race it).
