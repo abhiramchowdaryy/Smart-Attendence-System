@@ -13,7 +13,7 @@ TanStack Query + Zustand. All free-tier.
 
 | Flow | Status |
 |------|--------|
-| Email/password + magic-link sign-in, role-based redirect | ✅ |
+| Sign-in by **register number** (PES1UG24CA119) or email, **role picker** (Student/Faculty/Admin) → correct dashboard, **remember me**, **forgot-password** reset flow | ✅ |
 | Role-guarded sections (student / faculty / admin) + Postgres RLS | ✅ |
 | Student dashboard — live KPIs from Supabase (today, %, avg duration) | ✅ |
 | **Mark Attendance** — live camera face detection + geofence chip → entry/exit with timestamps, duration, late/partial status | ✅ |
@@ -43,9 +43,9 @@ npm run download-models   # detector + landmarks + recognition nets → public/m
 
 1. [supabase.com](https://supabase.com) → New project (free tier).
 2. SQL Editor → paste **`supabase/schema.sql`** → Run.
-3. Run each file in **`supabase/migrations/`** in order (0001 → 0005):
+3. Run each file in **`supabase/migrations/`** in order (0001 → 0006):
    courses + enrolments, attendance summary view, GPS settings,
-   student details, face-enrolment flag.
+   student details, face-enrolment flag, login-by-register-number.
 4. Open **`supabase/seed.sql`**, **edit the geofence lat/lng to your current
    location** (Google Maps → right-click → copy coordinates), then run it.
 5. After creating users (step 4 below), run **`supabase/seed_phase2.sql`**
@@ -121,7 +121,9 @@ Exiting while the session is open records **Left early (partial)**.
 
 ```
 app/
-  (auth)/login/          sign-in (password + magic link, server actions)
+  (auth)/login/          sign-in (register-no/email + role picker + remember-me)
+  auth/confirm/          recovery-link handler → establishes reset session
+  reset-password/        set a new password after a forgot-password email
   student/               dashboard · attendance (75% engine) · results (SGPA/CGPA)
                          performance (attendance×marks + AI suggestion/prediction)
                          mark-attendance (face match + geo) · enroll-face · profile

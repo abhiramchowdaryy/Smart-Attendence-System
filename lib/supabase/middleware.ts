@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseConfigured } from "@/lib/utils";
+import { toSessionCookie } from "@/lib/supabase/server";
 
 const PROTECTED_PREFIXES = ["/student", "/faculty", "/admin"];
 
@@ -14,6 +15,10 @@ export async function updateSession(request: NextRequest) {
   if (!supabaseConfigured()) return NextResponse.next({ request });
 
   let response = NextResponse.next({ request });
+
+  // "Remember me" opt-out: keep refreshed auth cookies session-scoped too,
+  // so token refresh in the middleware doesn't quietly make them persistent.
+  const sessionOnly = request.cookies.get("sa-remember")?.value === "0";
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,7 +36,11 @@ export async function updateSession(request: NextRequest) {
           );
           response = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
+            response.cookies.set(
+              name,
+              value,
+              sessionOnly ? toSessionCookie(options) : options
+            )
           );
         },
       },

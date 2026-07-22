@@ -3,23 +3,36 @@
 import { useActionState, useState } from "react";
 import {
   AlertCircle,
+  ArrowLeft,
   ArrowRight,
   CheckCircle2,
+  GraduationCap,
+  IdCard,
   Loader2,
   Lock,
   Mail,
+  ShieldCheck,
+  Users,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import type { Role } from "@/lib/utils";
 import {
-  sendMagicLink,
+  requestPasswordReset,
   signInWithPassword,
   type AuthFormState,
 } from "./actions";
 
 const INITIAL: AuthFormState = {};
+
+const ROLES: { value: Role; label: string; Icon: typeof GraduationCap }[] = [
+  { value: "student", label: "Student", Icon: GraduationCap },
+  { value: "faculty", label: "Faculty", Icon: Users },
+  { value: "admin", label: "Admin", Icon: ShieldCheck },
+];
 
 /** Input with a leading icon — visual anchor without sacrificing labels. */
 function IconInput({
@@ -37,16 +50,21 @@ function IconInput({
   );
 }
 
-export function LoginForm() {
-  const [mode, setMode] = useState<"password" | "magic">("password");
+export function LoginForm({ initialError }: { initialError?: string }) {
+  const [mode, setMode] = useState<"signin" | "reset">("signin");
+  const [role, setRole] = useState<Role>("student");
   const [pwState, pwAction, pwPending] = useActionState(
     signInWithPassword,
     INITIAL
   );
-  const [mlState, mlAction, mlPending] = useActionState(sendMagicLink, INITIAL);
+  const [rsState, rsAction, rsPending] = useActionState(
+    requestPasswordReset,
+    INITIAL
+  );
 
-  const state = mode === "password" ? pwState : mlState;
-  const pending = mode === "password" ? pwPending : mlPending;
+  const state = mode === "signin" ? pwState : rsState;
+  const pending = mode === "signin" ? pwPending : rsPending;
+  const roleLabel = ROLES.find((r) => r.value === role)!.label;
 
   return (
     <motion.div
@@ -57,31 +75,77 @@ export function LoginForm() {
     >
       <div className="space-y-1.5">
         <h1 className="font-display text-3xl font-bold tracking-tight">
-          Welcome back
+          {mode === "signin" ? "Welcome back" : "Reset your password"}
         </h1>
         <p className="text-sm text-muted-foreground">
-          Sign in with your institutional account to continue.
+          {mode === "signin"
+            ? "Choose your role and sign in with your register number."
+            : "Enter your register number or email and we'll send a reset link."}
         </p>
       </div>
 
-      <form
-        action={mode === "password" ? pwAction : mlAction}
-        className="space-y-4"
-      >
+      {mode === "signin" && (
+        <div>
+          <span className="mb-2 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            I am a
+          </span>
+          <div
+            role="radiogroup"
+            aria-label="Select your role"
+            className="grid grid-cols-3 gap-2"
+          >
+            {ROLES.map(({ value, label, Icon }) => {
+              const active = role === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => setRole(value)}
+                  className={cn(
+                    "flex cursor-pointer flex-col items-center gap-1.5 rounded-lg border px-2 py-3 text-sm font-medium transition-colors",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    active
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-input text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <Icon className="size-5" aria-hidden="true" />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <form action={mode === "signin" ? pwAction : rsAction} className="space-y-4">
+        {/* Selected role travels with the sign-in submit. */}
+        {mode === "signin" && <input type="hidden" name="role" value={role} />}
+
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="identifier">
+            {mode === "signin" ? "Register number" : "Register number or email"}
+          </Label>
           <IconInput
-            icon={Mail}
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            placeholder="you@pes.edu"
+            icon={mode === "signin" ? IdCard : Mail}
+            id="identifier"
+            name="identifier"
+            type="text"
+            autoComplete="username"
+            autoCapitalize="characters"
+            placeholder="PES1UG24CA119"
             required
           />
+          {mode === "signin" && (
+            <p className="text-xs text-muted-foreground">
+              Use your PES register number, or your email address.
+            </p>
+          )}
         </div>
 
-        {mode === "password" && (
+        {mode === "signin" && (
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <IconInput
@@ -96,13 +160,34 @@ export function LoginForm() {
           </div>
         )}
 
-        {state.error && (
+        {mode === "signin" && (
+          <div className="flex items-center justify-between">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                name="remember"
+                defaultChecked
+                className="size-4 cursor-pointer rounded border-input accent-primary"
+              />
+              Remember me
+            </label>
+            <button
+              type="button"
+              onClick={() => setMode("reset")}
+              className="cursor-pointer text-sm font-medium text-primary hover:underline"
+            >
+              Forgot password?
+            </button>
+          </div>
+        )}
+
+        {(state.error || (mode === "signin" && initialError)) && (
           <p
             role="alert"
             className="flex items-start gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
           >
             <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            {state.error}
+            {state.error ?? initialError}
           </p>
         )}
         {state.message && (
@@ -124,11 +209,11 @@ export function LoginForm() {
           {pending ? (
             <>
               <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-              {mode === "password" ? "Signing in…" : "Sending link…"}
+              {mode === "signin" ? "Signing in…" : "Sending link…"}
             </>
-          ) : mode === "password" ? (
+          ) : mode === "signin" ? (
             <>
-              Sign in
+              Sign in as {roleLabel}
               <ArrowRight
                 className="size-4 transition-transform duration-200 group-hover:translate-x-0.5"
                 aria-hidden="true"
@@ -137,31 +222,22 @@ export function LoginForm() {
           ) : (
             <>
               <Mail className="size-4" aria-hidden="true" />
-              Send magic link
+              Send reset link
             </>
           )}
         </Button>
       </form>
 
-      {/* Divider + mode switch */}
-      <div className="flex items-center gap-3" aria-hidden="true">
-        <span className="h-px flex-1 bg-border" />
-        <span className="text-xs uppercase tracking-wide text-muted-foreground">
-          or
-        </span>
-        <span className="h-px flex-1 bg-border" />
-      </div>
-
-      <button
-        type="button"
-        suppressHydrationWarning
-        onClick={() => setMode(mode === "password" ? "magic" : "password")}
-        className="w-full cursor-pointer rounded-md border border-input bg-transparent px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-muted"
-      >
-        {mode === "password"
-          ? "Sign in with a magic link instead"
-          : "Sign in with password instead"}
-      </button>
+      {mode === "reset" && (
+        <button
+          type="button"
+          onClick={() => setMode("signin")}
+          className="flex w-full items-center justify-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          Back to sign in
+        </button>
+      )}
     </motion.div>
   );
 }

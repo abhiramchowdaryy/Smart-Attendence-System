@@ -27,7 +27,11 @@ const DOTS_DARKPANEL = {
   backgroundSize: "22px 22px",
 } as const;
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   // Already signed in? Straight to the role home.
   if (supabaseConfigured()) {
     const supabase = await createClient();
@@ -36,6 +40,8 @@ export default async function LoginPage() {
     } = await supabase.auth.getUser();
     if (user) await redirectToRoleHome(supabase, user.id);
   }
+
+  const { error } = await searchParams;
 
   return (
     <main className="grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">
@@ -147,7 +153,7 @@ export default async function LoginPage() {
                 </p>
               </div>
             )}
-            <LoginForm />
+            <LoginForm initialError={error} />
           </div>
         </div>
 

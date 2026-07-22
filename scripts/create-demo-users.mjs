@@ -54,8 +54,8 @@ const admin = createClient(url, serviceKey, {
 
 const USERS = [
   { email: "student@pes.edu", fullName: "Demo Student", role: "student", rollNo: "PES1UG24CA001" },
-  { email: "faculty@pes.edu", fullName: "Demo Faculty", role: "faculty", rollNo: null },
-  { email: "admin@pes.edu", fullName: "Demo Admin", role: "admin", rollNo: null },
+  { email: "faculty@pes.edu", fullName: "Demo Faculty", role: "faculty", rollNo: "PES1FAC0001" },
+  { email: "admin@pes.edu", fullName: "Demo Admin", role: "admin", rollNo: "PES1ADM0001" },
 ];
 const PASSWORD = "Pes@12345";
 
