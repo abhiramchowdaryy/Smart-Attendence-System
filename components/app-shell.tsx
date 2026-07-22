@@ -27,6 +27,7 @@ const NAV: Record<Role, NavItem[]> = {
   admin: [
     { href: "/admin/dashboard", label: "Dashboard" },
     { href: "/admin/attendance", label: "Attendance" },
+    { href: "/admin/monthly", label: "Monthly" },
     { href: "/admin/corrections", label: "Corrections" },
     { href: "/faculty/attendance", label: "By course" },
     { href: "/faculty/courses", label: "Courses" },

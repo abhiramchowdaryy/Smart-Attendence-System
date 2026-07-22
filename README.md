@@ -26,6 +26,7 @@ TanStack Query + Zustand. All free-tier.
 | **Student search + Excel/PDF export** of attendance reports (faculty roster + admin rollup) | ✅ |
 | **Attendance corrections** — faculty request an edit, admin approves/rejects (approval applies the new status) | ✅ |
 | **Manage departments + holidays** (`/admin/institution`) — admin master-data CRUD | ✅ |
+| **Monthly report** (`/admin/monthly`) — marks per month by status, chart + table + export | ✅ |
 | Courses & enrolment management (`/faculty/courses`) — catalogue CRUD + roster editor | ✅ Phase 2 |
 | **Face enrolment + identity verification** — 128-d descriptor, server-side match, blink liveness | ✅ Phase 2 |
 | **GPS settings** (`/admin/settings`) — geofence grace, late window, high-accuracy toggle | ✅ Phase 2 |
