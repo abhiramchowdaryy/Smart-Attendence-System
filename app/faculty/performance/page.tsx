@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
-import { Sigma, TrendingUp, Users } from "lucide-react";
+import { AlertTriangle, Sigma, TrendingUp, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import { GsapReveal } from "@/components/gsap-reveal";
 import { KpiCard } from "@/components/kpi-card";
+import { Badge } from "@/components/ui/badge";
+import { GradeBadge } from "@/components/grade-badge";
 import {
   CorrelationScatter,
   type CorrelationPoint,
 } from "@/components/charts/correlation-scatter";
 import { describeR, linearRegression, pearsonR } from "@/lib/stats";
+import { analyzePerformance, predictPerformance } from "@/lib/performance";
 import {
   Card,
   CardContent,
@@ -75,6 +78,20 @@ export default async function PerformancePage() {
     })
     .sort((a, b) => b.attendancePct - a.attendancePct);
 
+  // Attach the shared attendance ↔ performance verdict to each student so
+  // the report can flag who needs intervention (same logic the student sees).
+  const analyzedRows = rows.map((r) => {
+    const input = { attendancePct: r.attendancePct, marksPct: r.marksPct };
+    return {
+      ...r,
+      analysis: analyzePerformance(input),
+      prediction: predictPerformance(input),
+    };
+  });
+  const interventionCount = analyzedRows.filter(
+    (r) => r.analysis?.atRisk
+  ).length;
+
   const points: CorrelationPoint[] = rows.map((r) => ({
     name: r.name,
     roll: r.roll,
@@ -94,13 +111,21 @@ export default async function PerformancePage() {
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           label="Students analyzed"
           value={String(rows.length)}
           countTo={rows.length}
           sub="With at least one mark"
           icon={<Users />}
+        />
+        <KpiCard
+          label="Requiring intervention"
+          value={String(interventionCount)}
+          countTo={interventionCount}
+          sub="Low attendance or marks"
+          icon={<AlertTriangle />}
+          tone={interventionCount > 0 ? "absent" : "present"}
         />
         <KpiCard
           label="Correlation (r)"
@@ -161,11 +186,12 @@ export default async function PerformancePage() {
                       <th scope="col" className="py-2 pr-4 font-medium">Roll no</th>
                       <th scope="col" className="py-2 pr-4 font-medium">Attendance</th>
                       <th scope="col" className="py-2 pr-4 font-medium">Avg marks</th>
-                      <th scope="col" className="py-2 font-medium">Assessments</th>
+                      <th scope="col" className="py-2 pr-4 font-medium">Expected</th>
+                      <th scope="col" className="py-2 font-medium">Risk</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((row) => (
+                    {analyzedRows.map((row) => (
                       <tr
                         key={row.roll ?? row.name}
                         className="border-b transition-colors last:border-0 hover:bg-muted/50"
@@ -180,8 +206,25 @@ export default async function PerformancePage() {
                         <td className="py-2.5 pr-4 font-mono text-xs">
                           {row.marksPct}%
                         </td>
-                        <td className="py-2.5 font-mono text-xs">
-                          {row.assessments}
+                        <td className="py-2.5 pr-4">
+                          <GradeBadge grade={row.prediction?.expectedGrade ?? null} />
+                        </td>
+                        <td className="py-2.5">
+                          {row.prediction ? (
+                            <Badge
+                              variant={
+                                row.prediction.riskLevel === "High"
+                                  ? "absent"
+                                  : row.prediction.riskLevel === "Medium"
+                                    ? "late"
+                                    : "present"
+                              }
+                            >
+                              {row.prediction.riskLevel}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
                         </td>
                       </tr>
                     ))}
