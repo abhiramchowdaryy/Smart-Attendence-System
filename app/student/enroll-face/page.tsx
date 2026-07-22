@@ -3,6 +3,7 @@ import { ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import { isValidDescriptor } from "@/lib/face";
+import { faceServiceConfigured } from "@/lib/face-service";
 import { FaceEnrollment } from "@/components/face/face-enrollment";
 import { GsapReveal } from "@/components/gsap-reveal";
 import {
@@ -26,6 +27,7 @@ export default async function EnrollFacePage() {
     .maybeSingle();
 
   const enrolled = isValidDescriptor(data?.face_embedding);
+  const serverVerification = faceServiceConfigured();
 
   return (
     <GsapReveal className="mx-auto max-w-md space-y-4">
@@ -43,12 +45,16 @@ export default async function EnrollFacePage() {
             {enrolled ? "Face enrolled" : "Enrol your face"}
           </CardTitle>
           <CardDescription>
-            Your face never leaves your device as an image — only a numeric
-            descriptor is stored, and a blink confirms you&apos;re live.
+            {serverVerification
+              ? "A blink confirms you're live. Your photo is sent once to verify identity server-side — only a numeric embedding is stored, never the image."
+              : "Your face never leaves your device as an image — only a numeric descriptor is stored, and a blink confirms you're live."}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <FaceEnrollment alreadyEnrolled={enrolled} />
+          <FaceEnrollment
+            alreadyEnrolled={enrolled}
+            serverVerification={serverVerification}
+          />
         </CardContent>
       </Card>
     </GsapReveal>

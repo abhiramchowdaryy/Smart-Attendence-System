@@ -4,6 +4,7 @@ import { CalendarX2, ScanFace } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import { isValidDescriptor, type FaceDescriptor } from "@/lib/face";
+import { faceServiceConfigured } from "@/lib/face-service";
 import { fetchGpsSettings } from "@/lib/gps-settings";
 import { MarkAttendanceClient } from "@/components/attendance/mark-attendance-client";
 import { GsapReveal } from "@/components/gsap-reveal";
@@ -135,6 +136,7 @@ export default async function MarkAttendancePage() {
           openAttendanceId={existing?.id ?? null}
           enrolledDescriptor={enrolledDescriptor}
           highAccuracy={gps.highAccuracy}
+          serverVerification={faceServiceConfigured()}
         />
       )}
     </GsapReveal>

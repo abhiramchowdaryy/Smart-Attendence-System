@@ -68,9 +68,12 @@ export async function resetFaceEnrollment(
   const { supabase, user, error } = await requireAdmin();
   if (!user) return { error: error ?? "Not allowed." };
 
+  // Clear both anchors: the browser descriptor and the optional server-side
+  // DeepFace embedding. Leaving the latter behind would let a stale server
+  // embedding keep verifying against the old face after a reset.
   const { error: updateError } = await supabase
     .from("profiles")
-    .update({ face_embedding: null })
+    .update({ face_embedding: null, face_embedding_server: null })
     .eq("id", userId);
   if (updateError) return { error: updateError.message };
 

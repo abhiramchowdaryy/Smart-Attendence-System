@@ -1,0 +1,5 @@
+# Extra deps for running the route tests locally without the heavy model stack.
+# The pure-logic suite (tests/test_face_logic.py) needs nothing beyond stdlib;
+# these only add what fastapi's TestClient requires.
+-r requirements.txt
+httpx>=0.27

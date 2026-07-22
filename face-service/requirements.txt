@@ -1,0 +1,14 @@
+# Face verification service — runtime deps.
+# Pinned to ranges that resolve on Python 3.11 (Render's default) with CPU-only
+# TensorFlow. DeepFace pulls in tensorflow/keras transitively; tf-keras is added
+# explicitly because DeepFace needs the standalone Keras 2 API on TF 2.16+.
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.29,<1.0
+pydantic>=2.6,<3.0
+deepface>=0.0.93
+tf-keras>=2.16
+# Headless OpenCV: no GUI libs, which is what you want on a server and keeps the
+# image small. DeepFace would otherwise pull the full opencv-python.
+opencv-python-headless>=4.9
+pillow>=10.2
+numpy>=1.26,<2.0

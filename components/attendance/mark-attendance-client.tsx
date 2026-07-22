@@ -32,6 +32,8 @@ interface Props {
   enrolledDescriptor: number[] | null;
   /** Admin GPS policy: request high-accuracy geolocation. */
   highAccuracy: boolean;
+  /** FACE_SERVICE_URL is set: capture a still and verify server-side. */
+  serverVerification?: boolean;
 }
 
 type Result =
@@ -44,6 +46,7 @@ export function MarkAttendanceClient({
   openAttendanceId,
   enrolledDescriptor,
   highAccuracy,
+  serverVerification = false,
 }: Props) {
   const router = useRouter();
   const geo = useGeofence(session.center, session.radiusM, highAccuracy);
@@ -90,7 +93,11 @@ export function MarkAttendanceClient({
 
   // ── Entry mode ──────────────────────────────────────────────────────
   const geoReady = geo.status === "inside";
-  const faceReady = scan?.phase === "ready" && scan.descriptor !== null;
+  const faceReady =
+    scan?.phase === "ready" &&
+    scan.descriptor !== null &&
+    // With server verification on, the still is required for the mark to pass.
+    (!serverVerification || scan.imageDataUrl !== null);
   const ready = faceReady && geoReady && !pending && result.kind !== "success";
 
   return (
@@ -101,6 +108,7 @@ export function MarkAttendanceClient({
       setScan={setScan}
       session={session}
       enrolledDescriptor={enrolledDescriptor}
+      serverVerification={serverVerification}
       result={result}
       pending={pending}
       onMark={() => {
@@ -116,6 +124,7 @@ export function MarkAttendanceClient({
             accuracy,
             faceConfidence: scan?.score ?? 0,
             descriptor,
+            image: serverVerification ? scan?.imageDataUrl : null,
           });
           setResult(
             res.ok
@@ -142,6 +151,7 @@ function EntryView({
   setScan,
   session,
   enrolledDescriptor,
+  serverVerification,
   result,
   pending,
   onMark,
@@ -152,6 +162,7 @@ function EntryView({
   setScan: (s: ScanStatus) => void;
   session: Props["session"];
   enrolledDescriptor: number[] | null;
+  serverVerification: boolean;
   result: Result;
   pending: boolean;
   onMark: () => void;
@@ -176,6 +187,7 @@ function EntryView({
       <BiometricScanner
         mode="verify"
         targetDescriptor={enrolledDescriptor}
+        captureImage={serverVerification}
         onStatus={setScan}
       />
       <GeofenceIndicator state={geo} roomName={session.roomName} />

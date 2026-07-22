@@ -1,0 +1,33 @@
+# Render.com blueprint for the face service.
+# Deploy: push this repo, then on Render → New → Blueprint → point at this file
+# (set the root directory to face-service). Free tier works; it cold-starts
+# after 15 min idle, so the first request after a nap is slow.
+services:
+  - type: web
+    name: pes-face-service
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # Generate a strong value in the Render dashboard and set the SAME value as
+      # FACE_SERVICE_TOKEN in the Next.js app's environment.
+      - key: FACE_SERVICE_TOKEN
+        generateValue: true
+      - key: FACE_MODEL
+        value: Facenet512
+      - key: FACE_DETECTOR
+        value: opencv
+      - key: FACE_DISTANCE_METRIC
+        value: cosine
+      - key: FACE_WARM_ON_STARTUP
+        value: "true"
+      # Persist downloaded model weights across restarts.
+      - key: DEEPFACE_HOME
+        value: /var/deepface
+    disk:
+      name: deepface-weights
+      mountPath: /var/deepface
+      sizeGB: 1
