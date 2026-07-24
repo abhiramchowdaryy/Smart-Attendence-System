@@ -32,6 +32,9 @@ interface Props {
   enrolledDescriptor: number[] | null;
   /** Admin GPS policy: request high-accuracy geolocation. */
   highAccuracy: boolean;
+  /** Admin GPS policy: metres of GPS-drift grace beyond the radius. Mirrors
+   *  the server so the chip/button match markEntry's decision. */
+  accuracyGraceM: number;
   /** FACE_SERVICE_URL is set: capture a still and verify server-side. */
   serverVerification?: boolean;
 }
@@ -46,10 +49,16 @@ export function MarkAttendanceClient({
   openAttendanceId,
   enrolledDescriptor,
   highAccuracy,
+  accuracyGraceM,
   serverVerification = false,
 }: Props) {
   const router = useRouter();
-  const geo = useGeofence(session.center, session.radiusM, highAccuracy);
+  const geo = useGeofence(
+    session.center,
+    session.radiusM,
+    highAccuracy,
+    accuracyGraceM
+  );
   const [scan, setScan] = useState<ScanStatus | null>(null);
   const [result, setResult] = useState<Result>({ kind: "idle" });
   const [pending, startTransition] = useTransition();

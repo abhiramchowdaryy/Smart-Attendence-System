@@ -2,10 +2,38 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface CourseActionState {
   error?: string;
   message?: string;
+}
+
+/**
+ * Staff gate shared by the course/enrolment actions. RLS ("courses: staff
+ * manage" / "enrollments: staff manage") is still the real enforcement — this
+ * matches the belt-and-suspenders pattern of the other actions and returns a
+ * friendly error instead of a raw RLS failure for non-staff callers.
+ */
+async function requireStaff(): Promise<
+  | { supabase: SupabaseClient; error: null }
+  | { supabase: null; error: string }
+> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { supabase: null, error: "Not signed in." };
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (!me || !["faculty", "admin"].includes(me.role)) {
+    return { supabase: null, error: "Faculty or admin access required." };
+  }
+  return { supabase, error: null };
 }
 
 /**
@@ -16,7 +44,8 @@ export async function upsertCourse(
   _prev: CourseActionState,
   formData: FormData
 ): Promise<CourseActionState> {
-  const supabase = await createClient();
+  const { supabase, error: authError } = await requireStaff();
+  if (!supabase) return { error: authError };
 
   const code = String(formData.get("code") ?? "").trim().toUpperCase();
   const name = String(formData.get("name") ?? "").trim();
@@ -55,7 +84,8 @@ export async function setEnrollments(
   courseCode: string,
   studentIds: string[]
 ): Promise<CourseActionState> {
-  const supabase = await createClient();
+  const { supabase, error: authError } = await requireStaff();
+  if (!supabase) return { error: authError };
 
   const { data: existing, error: readError } = await supabase
     .from("enrollments")
