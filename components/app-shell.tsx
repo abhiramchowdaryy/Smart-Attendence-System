@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Compass, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { AppNav, type NavItem } from "@/components/app-nav";
+import { PesLogo } from "@/components/pes-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { signOut } from "@/app/(auth)/login/actions";
@@ -57,12 +58,17 @@ export function AppShell({
         <div className="container flex h-14 items-center gap-2 sm:gap-4">
           <Link
             href={`/${role}/dashboard`}
-            className="flex shrink-0 items-center gap-2 font-display text-sm font-bold"
+            aria-label="PES Smart Attendance — home"
+            className="flex shrink-0 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:gap-3"
           >
-            <span className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <Compass className="size-4" aria-hidden="true" />
+            <PesLogo className="h-8 sm:h-9" />
+            <span
+              aria-hidden="true"
+              className="hidden h-6 w-px bg-border lg:inline-block"
+            />
+            <span className="hidden font-display text-sm font-semibold text-muted-foreground lg:inline">
+              Smart Attendance
             </span>
-            <span className="hidden lg:inline">PES Smart Attendance</span>
           </Link>
 
           <AppNav items={NAV[role]} />
