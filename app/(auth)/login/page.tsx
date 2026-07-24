@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MapPin, ScanFace, TrendingUp, Users } from "lucide-react";
+import { AlertCircle, MapPin, ScanFace, TrendingUp, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { redirectToRoleHome } from "@/lib/auth";
 import { supabaseConfigured } from "@/lib/utils";
@@ -29,7 +29,11 @@ const DOTS_DARKPANEL = {
   backgroundSize: "22px 22px",
 } as const;
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   // Already signed in? Straight to the role home.
   if (supabaseConfigured()) {
     const supabase = await createClient();
@@ -38,6 +42,9 @@ export default async function LoginPage() {
     } = await supabase.auth.getUser();
     if (user) await redirectToRoleHome(supabase, user.id);
   }
+
+  // Google sign-in failures come back from /callback as ?error=…
+  const { error: callbackError } = await searchParams;
 
   return (
     <main className="grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">
@@ -142,6 +149,18 @@ export default async function LoginPage() {
                   <code className="font-mono text-xs">supabase/schema.sql</code>
                   , then restart the dev server.
                 </p>
+              </div>
+            )}
+            {callbackError && (
+              <div
+                role="alert"
+                className="flex items-start gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
+              >
+                <AlertCircle
+                  className="mt-0.5 size-4 shrink-0"
+                  aria-hidden="true"
+                />
+                {callbackError}
               </div>
             )}
             <LoginForm />
