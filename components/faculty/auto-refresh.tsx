@@ -4,9 +4,12 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 /**
- * Polls router.refresh() so the server-rendered roster stays current
- * while a session is live. Phase 2 swaps this for a Supabase Realtime
- * subscription; polling keeps the MVP dependency-free.
+ * Generic "poll router.refresh() every N seconds" helper.
+ *
+ * The faculty roster now stays current via Supabase Realtime
+ * (components/faculty/realtime-roster.tsx), which uses this pattern only as
+ * a slow fallback when the realtime socket can't connect. Kept as a small,
+ * dependency-free utility for any view that just wants periodic refresh.
  */
 export function AutoRefresh({ seconds = 15 }: { seconds?: number }) {
   const router = useRouter();

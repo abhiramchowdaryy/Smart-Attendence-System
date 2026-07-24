@@ -13,7 +13,7 @@ import { StatusPill } from "@/components/status-pill";
 import { GsapReveal } from "@/components/gsap-reveal";
 import { OpenSessionForm } from "@/components/faculty/open-session-form";
 import { CloseSessionButton } from "@/components/faculty/close-session-button";
-import { AutoRefresh } from "@/components/faculty/auto-refresh";
+import { RealtimeRoster } from "@/components/faculty/realtime-roster";
 import {
   Card,
   CardContent,
@@ -87,8 +87,9 @@ export default async function FacultyDashboard() {
 
   return (
     <GsapReveal className="space-y-6">
-      {/* Keep the roster fresh while a session is live */}
-      {openSession && <AutoRefresh seconds={15} />}
+      {/* Keep the roster fresh while a session is live — Supabase Realtime,
+          with a slow poll fallback if the socket can't connect. */}
+      {openSession && <RealtimeRoster sessionId={openSession.id} />}
 
       <div>
         <h1 className="text-2xl font-bold">
@@ -157,7 +158,7 @@ export default async function FacultyDashboard() {
               </CardTitle>
               <CardDescription>
                 {fence ? `Room “${fence.room_name}” · ` : ""}
-                Auto-refreshes every 15 s
+                Updates live as students mark
               </CardDescription>
             </div>
             <CloseSessionButton sessionId={openSession.id} />

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { distanceMeters } from "@/lib/geo";
+import { checkSessionGeofence, effectiveGraceM } from "@/lib/geofence";
 import { euclideanDistance, isFaceMatch, isValidDescriptor } from "@/lib/face";
 import {
   faceServiceConfigured,
@@ -137,18 +137,25 @@ export async function markEntry(input: {
   // Institution GPS policy (admin-configurable), with safe defaults.
   const gps = await fetchGpsSettings(supabase);
 
-  // ── The authoritative geofence check ──────────────────────────────
-  const distance = distanceMeters(
-    { lat: input.lat, lng: input.lng },
-    { lat: Number(fence.lat), lng: Number(fence.lng) }
-  );
-  const allowed =
-    Number(fence.radius_m) +
-    Math.min(Math.max(input.accuracy, 0), gps.accuracyGraceM);
-  if (distance > allowed) {
+  // ── The authoritative geofence check (PostGIS ST_DWithin) ─────────
+  // The grace is the reported GPS accuracy, capped at the admin policy, so
+  // the DB path and the Haversine fallback apply an identical allowance.
+  const graceM = effectiveGraceM(input.accuracy, gps.accuracyGraceM);
+  const geo = await checkSessionGeofence(supabase, {
+    sessionId: session.id,
+    lat: input.lat,
+    lng: input.lng,
+    graceM,
+    fence: {
+      lat: Number(fence.lat),
+      lng: Number(fence.lng),
+      radiusM: Number(fence.radius_m),
+    },
+  });
+  if (!geo.within) {
     return {
       ok: false,
-      error: `You appear to be ${Math.round(distance)} m from the classroom (limit ${Math.round(allowed)} m). Move inside the geofence and retry.`,
+      error: `You appear to be ${Math.round(geo.distanceM)} m from the classroom (limit ${Math.round(geo.allowedM)} m). Move inside the geofence and retry.`,
     };
   }
 

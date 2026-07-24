@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { distanceMeters, type LatLng } from "@/lib/geo";
+import { effectiveGraceM } from "@/lib/geofence";
 
 export type GeofenceState =
   | { status: "unsupported" }
@@ -22,11 +23,18 @@ export type GeofenceState =
  * Watches position so walking toward the room updates in real time.
  * The server action independently re-validates coordinates — this hook
  * is presentation, not security.
+ *
+ * The "inside" boundary mirrors the server's allowance exactly: radius plus
+ * the reported GPS accuracy, capped at the admin grace (`accuracyGraceM`).
+ * Without this, a student standing where the server WOULD accept them could
+ * still see the Mark button greyed out — the classic "the button won't light
+ * up in the classroom" trap.
  */
 export function useGeofence(
   center: LatLng,
   radiusM: number,
-  highAccuracy: boolean = true
+  highAccuracy: boolean = true,
+  accuracyGraceM: number = 0
 ): GeofenceState {
   const [state, setState] = useState<GeofenceState>({ status: "seeking" });
 
@@ -43,8 +51,11 @@ export function useGeofence(
           lng: pos.coords.longitude,
         };
         const d = distanceMeters(center, coords);
+        // Same allowance the server applies, so the chip and the Mark button
+        // never disagree with markEntry's authoritative check.
+        const allowed = radiusM + effectiveGraceM(pos.coords.accuracy, accuracyGraceM);
         setState({
-          status: d <= radiusM ? "inside" : "outside",
+          status: d <= allowed ? "inside" : "outside",
           distance: Math.round(d),
           accuracy: Math.round(pos.coords.accuracy),
           coords,
@@ -75,7 +86,7 @@ export function useGeofence(
     );
 
     return () => navigator.geolocation.clearWatch(id);
-  }, [center.lat, center.lng, radiusM, highAccuracy]);
+  }, [center.lat, center.lng, radiusM, highAccuracy, accuracyGraceM]);
 
   return state;
 }

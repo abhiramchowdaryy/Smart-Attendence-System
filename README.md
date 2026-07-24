@@ -5,8 +5,10 @@ Analytics — PES University. Phase 1 (MVP) + Phase 2 (attendance engine,
 face identity + liveness, GPS policy, results, rich profile).
 
 **Stack:** Next.js 15 (App Router) · React 19 · TypeScript · Tailwind CSS ·
-Supabase (Postgres + Auth + RLS) · @vladmandic/face-api (browser face
-detection) · Geolocation + Haversine geofencing · Framer Motion ·
+Supabase (Postgres + PostGIS + Auth + RLS + Realtime + Edge Functions) ·
+@vladmandic/face-api (browser face detection) · Geolocation + PostGIS
+`ST_DWithin` geofencing (Haversine fallback) · Twilio parent SMS ·
+OpenStreetMap map-pin editor · CSV / PDF export · Framer Motion ·
 TanStack Query + Zustand. All free-tier.
 
 ## What works in this MVP slice
@@ -29,7 +31,11 @@ TanStack Query + Zustand. All free-tier.
 | **Results** — ISA/ESA marks, letter grades, SGPA/CGPA dials | ✅ Phase 2 |
 | **Profile** — personal/family/address details, masked Aadhaar (last 4 only) | ✅ Phase 2 |
 | **DeepFace server verification** — optional FastAPI service; live *image* re-embedded server-side (`FACE_SERVICE_URL`) | ✅ Phase 2+ (opt-in) |
-| Twilio SMS, PostGIS, Realtime, map editor, CSV/PDF export | Later (seams in place) |
+| **PostGIS `ST_DWithin` geofencing** — authoritative containment in the DB via a `geofence_check()` RPC; TS Haversine fallback | ✅ Phase 2+ |
+| **Supabase Realtime roster** — faculty live roster updates via Postgres change events (no more 15s polling) | ✅ Phase 2+ |
+| **Map-pin geofence editor** — dependency-free OpenStreetMap picker with a to-scale radius circle | ✅ Phase 2+ |
+| **CSV / PDF export** — attendance & results (Blob CSV + print-to-PDF) | ✅ Phase 2+ |
+| **Twilio parent SMS** — Supabase Edge Function wired to attendance-shortfall flags (`profiles.parent_phone`; DLT-aware) | ✅ Phase 2+ (deploy + secrets to send) |
 
 ## Setup (≈10 minutes)
 
@@ -44,9 +50,12 @@ npm run download-models   # detector + landmarks + recognition nets → public/m
 
 1. [supabase.com](https://supabase.com) → New project (free tier).
 2. SQL Editor → paste **`supabase/schema.sql`** → Run.
-3. Run each file in **`supabase/migrations/`** in order (0001 → 0006):
+3. Run each file in **`supabase/migrations/`** in order (0001 → 0009):
    courses + enrolments, attendance summary view, GPS settings,
-   student details, face-enrolment flag, server-side face embedding.
+   student details, face-enrolment flag, server-side face embedding,
+   PostGIS geofencing, Realtime publication, SMS notification log.
+   (0007 enables the PostGIS extension; if your project can't, the app
+   falls back to the built-in Haversine check automatically.)
 4. Open **`supabase/seed.sql`**, **edit the geofence lat/lng to your current
    location** (Google Maps → right-click → copy coordinates), then run it.
 5. After creating users (step 4 below), run **`supabase/seed_phase2.sql`**
@@ -149,9 +158,13 @@ components/
   eligibility-badge, grade-badge, app-shell, kpi-card, status-pill, …
 hooks/use-geofence.ts    live Haversine geofence state (UX only)
 lib/                     attendance (75% policy) · results (grades/GPA) · face
-                         (match + EAR liveness math) · gps-settings · geo · auth
-                         — each with node --test unit tests
-supabase/                schema.sql · migrations/0001–0006 · seed*.sql
+                         (match + EAR liveness math) · gps-settings · geo ·
+                         geofence (PostGIS RPC + Haversine fallback) ·
+                         webmercator (map math) · export (CSV/PDF) · sms
+                         (phone + template) · auth — each with node --test units
+supabase/                schema.sql · migrations/0001–0009 · seed*.sql
+  functions/             edge functions (Deno): notify-shortfall (Twilio parent
+                         SMS) + _shared/cors
 face-service/            optional FastAPI + DeepFace microservice (server-side
                          verification) — Dockerfile + Render blueprint + tests
 docs/                    attendance-aggregation-engine design + implementation
@@ -206,22 +219,32 @@ in headless CI.
 4. Students re-enrol once so a server embedding is captured; from then on the
    authoritative check runs on server-side pixels.
 
-## Roadmap (remaining)
+## Roadmap
 
 Phase 2 has landed: the 75% attendance engine, face enrolment + server-side
 identity match with blink liveness, admin GPS policy, results (grades,
 SGPA/CGPA), rich profile, and course/enrolment management — see the table
-above. Still outstanding:
+above.
 
-- Twilio parent SMS via Supabase Edge Function (target: `profiles.parent_phone`;
-  note: SMS to Indian numbers needs TRAI/DLT sender + template registration) —
-  wire to the attendance-shortfall flags
-- Supabase Realtime to replace the faculty roster's 15s polling
-  (`components/faculty/auto-refresh.tsx`)
-- Map-pin geofence editor (admin currently types lat/lng or uses "Use my
-  current location")
-- PostGIS `ST_DWithin` geofencing (currently Haversine in SQL/TS)
-- CSV / PDF export of attendance and results
+The Phase 2+ items are now implemented too:
+
+- **Twilio parent SMS** via a Supabase Edge Function
+  (`supabase/functions/notify-shortfall`), wired to the attendance-shortfall
+  flags and targeting `profiles.parent_phone`. Deploy the function and set the
+  Twilio secrets to send for real; without them the flow runs as a logged dry
+  run. SMS to Indian numbers needs a TRAI/DLT sender + template — see the
+  function README.
+- **Supabase Realtime** roster (`components/faculty/realtime-roster.tsx`)
+  replaces the old 15s poll; a slow poll remains only as a fallback.
+- **Map-pin geofence editor** (`components/admin/map-picker.tsx`) — a
+  dependency-free OpenStreetMap picker alongside type-in and "use my location".
+- **PostGIS `ST_DWithin`** geofencing (migration 0007 + `lib/geofence.ts`),
+  with the Haversine path kept as a non-breaking fallback.
+- **CSV / PDF export** (`lib/export.ts` + `components/export-menu.tsx`) on the
+  attendance and results tables.
+
+Deploying the edge function and applying migrations 0007–0009 activates the
+server-side pieces; everything degrades gracefully if they are skipped.
 
 ---
 Team: Preethika.C · Preethi · Nesara · Monisha — Guide: Prof. Niteesh K R

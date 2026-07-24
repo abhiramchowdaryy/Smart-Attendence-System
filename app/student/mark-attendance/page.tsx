@@ -61,7 +61,8 @@ export default async function MarkAttendancePage() {
     ? me!.face_embedding
     : null;
 
-  // Admin GPS policy (for the client's high-accuracy geolocation request).
+  // Admin GPS policy: high-accuracy request + the geofence grace, so the
+  // client chip/button mirror the server's allowance.
   const gps = await fetchGpsSettings(supabase);
 
   // Does this student already have an entry (without exit) for it?
@@ -136,6 +137,7 @@ export default async function MarkAttendancePage() {
           openAttendanceId={existing?.id ?? null}
           enrolledDescriptor={enrolledDescriptor}
           highAccuracy={gps.highAccuracy}
+          accuracyGraceM={gps.accuracyGraceM}
           serverVerification={faceServiceConfigured()}
         />
       )}

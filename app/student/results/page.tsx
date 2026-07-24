@@ -21,6 +21,8 @@ import { KpiCard } from "@/components/kpi-card";
 import { GsapReveal } from "@/components/gsap-reveal";
 import { GradeDial } from "@/components/charts/grade-dial";
 import { GradeBadge } from "@/components/grade-badge";
+import { ExportMenu } from "@/components/export-menu";
+import type { ExportColumn, ExportRow } from "@/lib/export";
 import {
   Card,
   CardContent,
@@ -69,6 +71,30 @@ export default async function StudentResults({
     : [];
   const failed = selected?.courses.filter((c) => c.grade === "F") ?? [];
   const totalEarned = semesters.reduce((s, x) => s + x.creditsEarned, 0);
+
+  // Export: the selected semester's course results, matching the table.
+  const exportColumns: ExportColumn[] = [
+    { key: "course", label: "Course" },
+    { key: "code", label: "Code" },
+    { key: "credits", label: "Credits" },
+    ...assessmentNames.map((n) => ({ key: `a_${n}`, label: n })),
+    { key: "total", label: "Total %" },
+    { key: "grade", label: "Grade" },
+  ];
+  const exportRows: ExportRow[] = (selected?.courses ?? []).map((c) => {
+    const row: ExportRow = {
+      course: c.name,
+      code: c.code,
+      credits: c.credits,
+      total: c.totalPct ?? "",
+      grade: c.grade ?? "",
+    };
+    for (const n of assessmentNames) {
+      const cell = c.assessments.get(n);
+      row[`a_${n}`] = cell ? `${cell.score}/${cell.max}` : "";
+    }
+    return row;
+  });
 
   return (
     <GsapReveal className="space-y-6">
@@ -188,18 +214,27 @@ export default async function StudentResults({
 
           {/* Marks table */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BookOpenCheck
-                  className="size-4 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                Course results — {selected.semester}
-              </CardTitle>
-              <CardDescription>
-                Grade bands: S ≥ 90 · A ≥ 80 · B ≥ 70 · C ≥ 60 · D ≥ 50 ·
-                E ≥ 40 · F below 40. F earns no credits.
-              </CardDescription>
+            <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+              <div className="space-y-1">
+                <CardTitle className="flex items-center gap-2">
+                  <BookOpenCheck
+                    className="size-4 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  Course results — {selected.semester}
+                </CardTitle>
+                <CardDescription>
+                  Grade bands: S ≥ 90 · A ≥ 80 · B ≥ 70 · C ≥ 60 · D ≥ 50 ·
+                  E ≥ 40 · F below 40. F earns no credits.
+                </CardDescription>
+              </div>
+              <ExportMenu
+                filename={`results-${profile.rollNo ?? "me"}-${selected.semester}`}
+                title={`Results — ${selected.semester}`}
+                subtitle={`${profile.fullName}${profile.rollNo ? ` · ${profile.rollNo}` : ""} · SGPA ${selected.sgpa ?? "—"}`}
+                columns={exportColumns}
+                rows={exportRows}
+              />
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
