@@ -13,13 +13,22 @@ export function supabaseConfigured() {
   );
 }
 
-export type Role = "student" | "faculty" | "admin";
+/**
+ * Application roles. `student`/`faculty`/`admin` are the real Postgres
+ * `user_role` enum values stored on `profiles`. `parent` is NOT a DB role —
+ * it is a read-only *view mode* of a student account: a parent signs in on
+ * the parent page with their child's own student email + password, and the
+ * app remembers "parent mode" via a cookie (see signInAsParent). It appears
+ * in this union only so the shell nav and routing can treat it as a role.
+ */
+export type Role = "student" | "faculty" | "admin" | "parent";
 export type AttendanceStatus = "present" | "late" | "absent" | "partial";
 
 export const ROLE_HOME: Record<Role, string> = {
   student: "/student/dashboard",
   faculty: "/faculty/dashboard",
   admin: "/admin/dashboard",
+  parent: "/parent/dashboard",
 };
 
 /**

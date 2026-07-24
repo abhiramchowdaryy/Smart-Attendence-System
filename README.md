@@ -15,6 +15,7 @@ TanStack Query + Zustand. All free-tier.
 |------|--------|
 | Email/password + magic-link sign-in, role-based redirect | ✅ |
 | Role-guarded sections (student / faculty / admin) + Postgres RLS | ✅ |
+| **Parent login** (`/parent-login`) — read-only view of a child's attendance & marks, using the student's own login | ✅ |
 | Student dashboard — live KPIs from Supabase (today, %, avg duration) | ✅ |
 | **Mark Attendance** — live camera face detection + geofence chip → entry/exit with timestamps, duration, late/partial status | ✅ |
 | Faculty dashboard — open/close sessions, live roster (15s polling), today's KPIs | ✅ |
@@ -78,6 +79,11 @@ update public.profiles set role = 'faculty' where id =
   (select id from auth.users where email = 'faculty@pes.edu');
 ```
 
+> **Parents need no account of their own.** A parent signs in at
+> `/parent-login` with their **child's own student email + password** and lands
+> on a read-only parent dashboard for that student — reached from the "Sign in
+> as a parent" link on the login page.
+
 **B. Seed script (scripted, needs the secret key).** Add
 `SUPABASE_SERVICE_ROLE_KEY` to `.env.local` — Project Settings → API Keys →
 the **secret** key (`sb_secret_...`, or a legacy `service_role` JWT on older
@@ -108,6 +114,12 @@ Exiting while the session is open records **Left early (partial)**.
 > Camera and geolocation require a secure context: `localhost` works;
 > on a phone use the Vercel deployment (HTTPS).
 
+**Parent sign-in.** From the login page, tap **Sign in as a parent** (or open
+`/parent-login`) and enter the **student's own email and password** — there is
+no separate parent account. That lands on a read-only parent dashboard showing
+the child's attendance rate, marks and recent classes. "Parent mode" is
+remembered by an `httpOnly` cookie and cleared on sign-out.
+
 ## Deploy (free)
 
 1. Push this folder to a GitHub repo.
@@ -122,8 +134,10 @@ Exiting while the session is open records **Left early (partial)**.
 ```
 app/
   (auth)/login/          sign-in (password + magic link, server actions)
+  (auth)/parent-login/   parent sign-in — uses the student's own login (see below)
   student/               dashboard · attendance (75% engine) · results (SGPA/CGPA)
                          mark-attendance (face match + geo) · enroll-face · profile
+  parent/                read-only dashboard of a child's attendance & marks
   faculty/               dashboard · attendance report · courses & rosters · marks
   admin/                 dashboard · attendance rollup · GPS settings
   api/face/verify/       HTTP seam to the DeepFace service (501 until FACE_SERVICE_URL set)
