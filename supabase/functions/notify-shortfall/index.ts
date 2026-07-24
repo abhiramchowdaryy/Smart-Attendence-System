@@ -169,6 +169,14 @@ Deno.serve(async (req) => {
     return json({ notified: 0, queued: 0, failed: 0, message: "No shortfalls to notify." });
   }
 
+  // DLT risk: this app only ever dials +91 numbers, and Indian carriers reject
+  // traffic from a plain sender without a TRAI/DLT-registered sender + template.
+  // A From-only config makes Twilio ACCEPT the message (we'd log "sent") while
+  // the carrier silently drops it — so warn when that's how we're configured.
+  const twilioFromOnly =
+    !!Deno.env.get("TWILIO_FROM_NUMBER") &&
+    !Deno.env.get("TWILIO_MESSAGING_SERVICE_SID");
+
   // ── Send + log one row per target ──────────────────────────────────
   let sent = 0;
   let queued = 0;
@@ -228,7 +236,14 @@ Deno.serve(async (req) => {
     results.push({ studentId: t.studentId, status, error });
   }
 
-  return json({ notified: sent, queued, failed, total: targets.length, results });
+  const warning =
+    sent > 0 && twilioFromOnly
+      ? "Messages were sent via a plain Twilio sender. Indian carriers (TRAI/DLT) " +
+        "require a registered sender + template — set TWILIO_MESSAGING_SERVICE_SID " +
+        "bound to your DLT sender, or delivery may be blocked."
+      : undefined;
+
+  return json({ notified: sent, queued, failed, total: targets.length, results, warning });
 });
 
 function json(body: unknown, status = 200): Response {

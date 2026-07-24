@@ -19,13 +19,21 @@ export function NotifyParentsButton({
   count: number;
 }) {
   const [pending, startTransition] = useTransition();
-  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const [result, setResult] = useState<{
+    ok: boolean;
+    text: string;
+    warning?: string;
+  } | null>(null);
 
   function run() {
     setResult(null);
     startTransition(async () => {
       const res = await notifyShortfallParents(courseCode);
-      setResult({ ok: res.ok, text: res.error ?? res.message ?? "" });
+      setResult({
+        ok: res.ok,
+        text: res.error ?? res.message ?? "",
+        warning: res.warning,
+      });
     });
   }
 
@@ -55,6 +63,14 @@ export function NotifyParentsButton({
           )}
         >
           {result.text}
+        </p>
+      )}
+      {result?.warning && (
+        <p
+          role="alert"
+          className="max-w-[18rem] text-right text-xs text-status-late"
+        >
+          {result.warning}
         </p>
       )}
     </div>

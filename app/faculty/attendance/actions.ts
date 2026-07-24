@@ -6,6 +6,8 @@ export interface NotifyResult {
   ok: boolean;
   error?: string;
   message?: string;
+  /** Non-fatal deliverability caveat (e.g. DLT not configured for India). */
+  warning?: string;
 }
 
 /**
@@ -58,5 +60,6 @@ export async function notifyShortfallParents(
   if (notified) parts.push(`${notified} sent`);
   if (queued) parts.push(`${queued} queued (Twilio not configured)`);
   if (failed) parts.push(`${failed} failed`);
-  return { ok: true, message: `Parents: ${parts.join(", ")}.` };
+  const warning = typeof data?.warning === "string" ? data.warning : undefined;
+  return { ok: true, message: `Parents: ${parts.join(", ")}.`, warning };
 }
