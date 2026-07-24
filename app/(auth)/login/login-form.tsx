@@ -38,6 +38,19 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Destructive alert shown next to the form that produced the error. */
+function ErrorAlert({ message }: { message: string }) {
+  return (
+    <p
+      role="alert"
+      className="flex items-start gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
+    >
+      <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+      {message}
+    </p>
+  );
+}
+
 /** Input with a leading icon — visual anchor without sacrificing labels. */
 function IconInput({
   icon: Icon,
@@ -63,9 +76,6 @@ export function LoginForm() {
     signInWithGoogle,
     INITIAL
   );
-
-  // Surface whichever action last reported a problem.
-  const error = googleState.error ?? pwState.error;
 
   return (
     <motion.div
@@ -109,6 +119,7 @@ export function LoginForm() {
         Students only — use your <span className="font-medium">@pes.edu</span>{" "}
         account.
       </p>
+      {googleState.error && <ErrorAlert message={googleState.error} />}
 
       {/* Divider between student SSO and staff password sign-in. */}
       <div className="flex items-center gap-3" aria-hidden="true">
@@ -146,15 +157,7 @@ export function LoginForm() {
           />
         </div>
 
-        {error && (
-          <p
-            role="alert"
-            className="flex items-start gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
-          >
-            <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            {error}
-          </p>
-        )}
+        {pwState.error && <ErrorAlert message={pwState.error} />}
 
         <Button
           type="submit"

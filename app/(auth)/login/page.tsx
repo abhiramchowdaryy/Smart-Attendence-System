@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirectToRoleHome } from "@/lib/auth";
 import { supabaseConfigured } from "@/lib/utils";
 import { LoginForm } from "./login-form";
+import { loginErrorMessage } from "./login-errors";
 import { LoginWatermark } from "@/components/login-watermark";
 import { LoginPreviewCards } from "@/components/login-preview-cards";
 import { PesLogo } from "@/components/pes-logo";
@@ -43,8 +44,10 @@ export default async function LoginPage({
     if (user) await redirectToRoleHome(supabase, user.id);
   }
 
-  // Google sign-in failures come back from /callback as ?error=…
-  const { error: callbackError } = await searchParams;
+  // Google sign-in failures come back from /callback as ?error=<code>; map the
+  // code to a fixed message so no attacker-controlled text is ever rendered.
+  const { error: errorCode } = await searchParams;
+  const callbackError = loginErrorMessage(errorCode);
 
   return (
     <main className="grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">

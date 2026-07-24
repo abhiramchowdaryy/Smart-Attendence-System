@@ -5,11 +5,11 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { redirectToRoleHome } from "@/lib/auth";
+import { resolveOrigin } from "@/lib/origin";
 import { COLLEGE_EMAIL_DOMAIN, supabaseConfigured } from "@/lib/utils";
 
 export interface AuthFormState {
   error?: string;
-  message?: string;
 }
 
 const NOT_CONFIGURED =
@@ -122,13 +122,12 @@ export async function signInWithGoogle(
 ): Promise<AuthFormState> {
   if (!supabaseConfigured()) return { error: NOT_CONFIGURED };
 
-  // Build an absolute callback URL from the incoming request's host.
+  // Build an absolute callback URL from the incoming request (proxy-aware).
   const headerList = await headers();
-  const origin =
-    headerList.get("origin") ??
-    (headerList.get("host")
-      ? `${headerList.get("x-forwarded-proto") ?? "https"}://${headerList.get("host")}`
-      : "");
+  const origin = resolveOrigin(headerList);
+  if (!origin) {
+    return { error: "Could not determine the site URL for Google sign-in." };
+  }
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
