@@ -24,6 +24,21 @@ export function supabaseConfigured() {
 export type Role = "student" | "faculty" | "admin" | "parent";
 export type AttendanceStatus = "present" | "late" | "absent" | "partial";
 
+/**
+ * College Google Workspace domain. Students sign in with their institutional
+ * Google account (`someone@pes.edu`); the OAuth callback rejects any address
+ * outside this domain. Also passed to Google as the `hd` hint so the account
+ * chooser prefers college accounts. Override with NEXT_PUBLIC_COLLEGE_DOMAIN.
+ */
+export const COLLEGE_EMAIL_DOMAIN =
+  process.env.NEXT_PUBLIC_COLLEGE_DOMAIN?.trim().toLowerCase() || "pes.edu";
+
+/** True when `email` belongs to the college Google Workspace domain. */
+export function isCollegeEmail(email: string | null | undefined): boolean {
+  const domain = email?.split("@")[1]?.trim().toLowerCase();
+  return domain === COLLEGE_EMAIL_DOMAIN;
+}
+
 export const ROLE_HOME: Record<Role, string> = {
   student: "/student/dashboard",
   faculty: "/faculty/dashboard",

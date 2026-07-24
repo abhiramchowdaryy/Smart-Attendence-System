@@ -15,7 +15,7 @@ TanStack Query + Zustand. All free-tier.
 
 | Flow | Status |
 |------|--------|
-| Email/password + magic-link sign-in, role-based redirect | ✅ |
+| Student Google sign-in (college `@pes.edu` account) + faculty/admin email-password, role-based redirect | ✅ |
 | Role-guarded sections (student / faculty / admin) + Postgres RLS | ✅ |
 | **Parent login** (`/parent-login`) — read-only view of a child's attendance & marks, using the student's own login | ✅ |
 | Student dashboard — live KPIs from Supabase (today, %, avg duration) | ✅ |
@@ -103,7 +103,27 @@ projects). It bypasses RLS, so keep it out of git and never prefix it with
 npm run seed-users   # student@pes.edu / faculty@pes.edu / admin@pes.edu — Pes@12345
 ```
 
-### 5. Run
+### 5. Enable Google sign-in (students)
+
+Students sign in with their college Google account — no password. Turn the
+provider on once per project:
+
+1. **Google Cloud Console** → *APIs & Services → Credentials* → create an
+   **OAuth 2.0 Client ID** (type *Web application*). Under *Authorized redirect
+   URIs* add your Supabase callback:
+   `https://YOUR-PROJECT-REF.supabase.co/auth/v1/callback`.
+2. **Supabase Dashboard** → *Authentication → Providers → Google* → paste the
+   Client ID + Secret and enable it.
+3. **Supabase Dashboard** → *Authentication → URL Configuration* → add
+   `http://localhost:3000/callback` (and your deployed
+   `https://…/callback`) to **Redirect URLs**.
+
+Only `@pes.edu` accounts are accepted, and Google sign-in creates/uses
+**student** accounts only — the `/callback` handler rejects any other domain or
+role. Faculty and admin keep signing in with email + password (step 4). To use a
+different Workspace domain, set `NEXT_PUBLIC_COLLEGE_DOMAIN` in `.env.local`.
+
+### 6. Run
 
 ```bash
 npm run dev
@@ -142,7 +162,8 @@ remembered by an `httpOnly` cookie and cleared on sign-out.
 
 ```
 app/
-  (auth)/login/          sign-in (password + magic link, server actions)
+  (auth)/login/          sign-in (student Google OAuth + faculty/admin password, server actions)
+  (auth)/callback/       Google OAuth callback — enforces college domain + student-only
   (auth)/parent-login/   parent sign-in — uses the student's own login (see below)
   student/               dashboard · attendance (75% engine) · results (SGPA/CGPA)
                          mark-attendance (face match + geo) · enroll-face · profile

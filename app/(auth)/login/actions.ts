@@ -1,15 +1,15 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { redirectToRoleHome } from "@/lib/auth";
-import { supabaseConfigured } from "@/lib/utils";
+import { resolveOrigin } from "@/lib/origin";
+import { COLLEGE_EMAIL_DOMAIN, supabaseConfigured } from "@/lib/utils";
 
 export interface AuthFormState {
   error?: string;
-  message?: string;
 }
 
 const NOT_CONFIGURED =
@@ -107,24 +107,45 @@ export async function signInAsParent(
   redirect("/parent/dashboard");
 }
 
-/** Passwordless magic-link sign-in. */
-export async function sendMagicLink(
+/**
+ * Student sign-in with a college Google account. Kicks off the Google OAuth
+ * flow and redirects the browser to Google's consent screen; control returns
+ * to /callback, where the college domain + student-role rules are enforced.
+ *
+ * The `hd` hint asks Google to prefer the college Workspace domain in its
+ * account chooser, but it is only a hint — /callback re-checks the domain
+ * server-side, so it cannot be bypassed.
+ */
+export async function signInWithGoogle(
   _prev: AuthFormState,
-  formData: FormData
+  _formData: FormData
 ): Promise<AuthFormState> {
   if (!supabaseConfigured()) return { error: NOT_CONFIGURED };
 
-  const email = String(formData.get("email") ?? "").trim();
-  if (!email) return { error: "Enter your email to receive a magic link." };
+  // Build an absolute callback URL from the incoming request (proxy-aware).
+  const headerList = await headers();
+  const origin = resolveOrigin(headerList);
+  if (!origin) {
+    return { error: "Could not determine the site URL for Google sign-in." };
+  }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { shouldCreateUser: false },
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${origin}/callback`,
+      queryParams: {
+        hd: COLLEGE_EMAIL_DOMAIN,
+        prompt: "select_account",
+      },
+    },
   });
   if (error) return { error: error.message };
 
-  return { message: `Magic link sent to ${email}. Check your inbox.` };
+  // Clear any stale parent-view flag, then hand off to Google's consent screen.
+  await setParentView(false);
+  if (data.url) redirect(data.url);
+  return { error: "Could not start Google sign-in. Please try again." };
 }
 
 export async function signOut() {
