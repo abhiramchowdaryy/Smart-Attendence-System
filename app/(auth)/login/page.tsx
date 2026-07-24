@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { Compass, MapPin, ScanFace, TrendingUp } from "lucide-react";
+import { MapPin, ScanFace, TrendingUp } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { redirectToRoleHome } from "@/lib/auth";
 import { supabaseConfigured } from "@/lib/utils";
 import { LoginForm } from "./login-form";
 import { LoginWatermark } from "@/components/login-watermark";
 import { LoginPreviewCards } from "@/components/login-preview-cards";
+import { PesLogo } from "@/components/pes-logo";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -54,16 +55,16 @@ export default async function LoginPage() {
         <LoginWatermark variant="strong" />
 
         {/* Content */}
-        <div className="relative z-10 flex items-center gap-3">
-          <span className="flex size-10 items-center justify-center rounded-md bg-white/10 ring-1 ring-white/15">
-            <Compass className="size-6 text-[hsl(var(--pes-orange))]" aria-hidden="true" />
+        <div className="relative z-10 flex items-center gap-3.5">
+          <span className="flex items-center rounded-lg bg-white/10 px-3 py-2 ring-1 ring-white/15">
+            <PesLogo variant="dark" priority className="h-9" />
           </span>
-          <div>
-            <p className="font-display text-sm font-bold uppercase tracking-widest">
-              PES University
-            </p>
-            <p className="text-xs text-white/70">Smart Attendance System</p>
-          </div>
+          <span aria-hidden="true" className="h-9 w-px bg-white/20" />
+          <p className="font-display text-xs font-semibold uppercase tracking-widest text-white/80">
+            Smart Attendance
+            <br />
+            System
+          </p>
         </div>
 
         <div className="relative z-10 flex flex-1 flex-col justify-center gap-10 py-10">
@@ -111,16 +112,11 @@ export default async function LoginPage() {
         </div>
 
         {/* Mobile brand header */}
-        <div className="relative z-10 mb-6 flex items-center gap-3 lg:hidden">
-          <span className="flex size-10 items-center justify-center rounded-md bg-primary">
-            <Compass className="size-6 text-[hsl(var(--pes-orange))]" aria-hidden="true" />
-          </span>
-          <div>
-            <p className="font-display text-sm font-bold uppercase tracking-widest">
-              PES University
-            </p>
-            <p className="text-xs text-muted-foreground">Smart Attendance System</p>
-          </div>
+        <div className="relative z-10 mb-6 flex flex-col items-center gap-2 lg:hidden">
+          <PesLogo priority className="h-11" />
+          <p className="font-display text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            Smart Attendance System
+          </p>
         </div>
 
         {/* The card anchors the form instead of floating in a void */}

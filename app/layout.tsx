@@ -28,6 +28,13 @@ export const metadata: Metadata = {
     "Smart Attendance Management System with Facial Recognition and Performance Analytics — PES University",
   manifest: "/manifest.json",
   appleWebApp: { capable: true, title: "PES Attendance" },
+  icons: {
+    icon: [
+      { url: "/pes-emblem.png", type: "image/png", sizes: "184x184" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/app-icon-512.png", sizes: "512x512" }],
+  },
 };
 
 export const viewport: Viewport = {
