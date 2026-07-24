@@ -14,6 +14,7 @@ import { KpiCard } from "@/components/kpi-card";
 import { GsapReveal } from "@/components/gsap-reveal";
 import { EligibilityBadge } from "@/components/eligibility-badge";
 import { ExportMenu } from "@/components/export-menu";
+import { NotifyParentsButton } from "@/components/faculty/notify-parents-button";
 import type { ExportColumn, ExportRow } from "@/lib/export";
 import {
   Card,
@@ -205,13 +206,18 @@ export default async function FacultyAttendance({
                 </CardDescription>
               </div>
               {rows.length > 0 && (
-                <ExportMenu
-                  filename={`course-attendance-${selected ?? "course"}`}
-                  title={`Course Attendance — ${selectedCourse?.name ?? selected}`}
-                  subtitle={`${selected}${selectedCourse ? ` · ${selectedCourse.semester}` : ""} · ${rows.length} enrolled`}
-                  columns={exportColumns}
-                  rows={exportRows}
-                />
+                <div className="flex flex-col items-end gap-2">
+                  <ExportMenu
+                    filename={`course-attendance-${selected ?? "course"}`}
+                    title={`Course Attendance — ${selectedCourse?.name ?? selected}`}
+                    subtitle={`${selected}${selectedCourse ? ` · ${selectedCourse.semester}` : ""} · ${rows.length} enrolled`}
+                    columns={exportColumns}
+                    rows={exportRows}
+                  />
+                  {selected && belowCount > 0 && (
+                    <NotifyParentsButton courseCode={selected} count={belowCount} />
+                  )}
+                </div>
               )}
             </CardHeader>
             <CardContent>
