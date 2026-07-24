@@ -114,6 +114,12 @@ Exiting while the session is open records **Left early (partial)**.
 > Camera and geolocation require a secure context: `localhost` works;
 > on a phone use the Vercel deployment (HTTPS).
 
+**Parent sign-in.** From the login page, tap **Sign in as a parent** (or open
+`/parent-login`) and enter the **student's own email and password** — there is
+no separate parent account. That lands on a read-only parent dashboard showing
+the child's attendance rate, marks and recent classes. "Parent mode" is
+remembered by an `httpOnly` cookie and cleared on sign-out.
+
 ## Deploy (free)
 
 1. Push this folder to a GitHub repo.
@@ -128,8 +134,10 @@ Exiting while the session is open records **Left early (partial)**.
 ```
 app/
   (auth)/login/          sign-in (password + magic link, server actions)
+  (auth)/parent-login/   parent sign-in — uses the student's own login (see below)
   student/               dashboard · attendance (75% engine) · results (SGPA/CGPA)
                          mark-attendance (face match + geo) · enroll-face · profile
+  parent/                read-only dashboard of a child's attendance & marks
   faculty/               dashboard · attendance report · courses & rosters · marks
   admin/                 dashboard · attendance rollup · GPS settings
   api/face/verify/       HTTP seam to the DeepFace service (501 until FACE_SERVICE_URL set)
