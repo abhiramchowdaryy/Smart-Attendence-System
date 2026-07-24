@@ -21,6 +21,8 @@ import { KpiCard } from "@/components/kpi-card";
 import { GsapReveal } from "@/components/gsap-reveal";
 import { AttendanceRing } from "@/components/charts/attendance-ring";
 import { EligibilityBadge } from "@/components/eligibility-badge";
+import { ExportMenu } from "@/components/export-menu";
+import type { ExportColumn, ExportRow } from "@/lib/export";
 import {
   Card,
   CardContent,
@@ -59,6 +61,33 @@ export default async function StudentAttendance({
   const withData = rows.filter((r) => r.conducted > 0);
   const totalConducted = withData.reduce((s, r) => s + r.conducted, 0);
   const totalAttended = withData.reduce((s, r) => s + attendedCount(r), 0);
+
+  // Export: the same per-subject rows shown in the table below.
+  const exportColumns: ExportColumn[] = [
+    { key: "course", label: "Course" },
+    { key: "code", label: "Code" },
+    { key: "credits", label: "Credits" },
+    { key: "attended", label: "Attended" },
+    { key: "conducted", label: "Conducted" },
+    { key: "official", label: "Official %" },
+    { key: "weighted", label: "Weighted %" },
+    { key: "status", label: "Status" },
+  ];
+  const exportRows: ExportRow[] = rows.map((r) => ({
+    course: r.course_name,
+    code: r.course_code,
+    credits: Number(r.credits),
+    attended: r.conducted === 0 ? "" : attendedCount(r),
+    conducted: r.conducted,
+    official: r.official_pct ?? "",
+    weighted: r.weighted_pct ?? "",
+    status:
+      r.conducted === 0
+        ? "No data"
+        : isEligible(r.official_pct)
+          ? "Eligible"
+          : "Shortfall",
+  }));
 
   return (
     <GsapReveal className="space-y-6">
@@ -196,18 +225,27 @@ export default async function StudentAttendance({
 
           {/* Per-course table */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BookOpenCheck
-                  className="size-4 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                Subjects — {selected}
-              </CardTitle>
-              <CardDescription>
-                Official % gates the 75% requirement; weighted % counts
-                late/left-early as half.
-              </CardDescription>
+            <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+              <div className="space-y-1">
+                <CardTitle className="flex items-center gap-2">
+                  <BookOpenCheck
+                    className="size-4 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  Subjects — {selected}
+                </CardTitle>
+                <CardDescription>
+                  Official % gates the 75% requirement; weighted % counts
+                  late/left-early as half.
+                </CardDescription>
+              </div>
+              <ExportMenu
+                filename={`attendance-${profile.rollNo ?? "me"}-${selected}`}
+                title={`Attendance — ${selected}`}
+                subtitle={`${profile.fullName}${profile.rollNo ? ` · ${profile.rollNo}` : ""}`}
+                columns={exportColumns}
+                rows={exportRows}
+              />
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">

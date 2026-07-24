@@ -13,6 +13,8 @@ import {
 import { KpiCard } from "@/components/kpi-card";
 import { GsapReveal } from "@/components/gsap-reveal";
 import { EligibilityBadge } from "@/components/eligibility-badge";
+import { ExportMenu } from "@/components/export-menu";
+import type { ExportColumn, ExportRow } from "@/lib/export";
 import {
   Card,
   CardContent,
@@ -77,6 +79,34 @@ export default async function FacultyAttendance({
 
   const withData = rows.filter((r) => r.conducted > 0);
   const belowCount = withData.filter((r) => !isEligible(r.official_pct)).length;
+
+  // Export: the roster as displayed (shortfall-first order), with names.
+  const exportColumns: ExportColumn[] = [
+    { key: "student", label: "Student" },
+    { key: "roll", label: "Roll no" },
+    { key: "attended", label: "Attended" },
+    { key: "conducted", label: "Conducted" },
+    { key: "official", label: "Official %" },
+    { key: "weighted", label: "Weighted %" },
+    { key: "status", label: "Status" },
+  ];
+  const exportRows: ExportRow[] = sorted.map((r) => {
+    const p = nameById.get(r.student_id);
+    return {
+      student: p?.full_name ?? "",
+      roll: p?.roll_no ?? "",
+      attended: r.conducted === 0 ? "" : attendedCount(r),
+      conducted: r.conducted,
+      official: r.official_pct ?? "",
+      weighted: r.weighted_pct ?? "",
+      status:
+        r.conducted === 0
+          ? "No data"
+          : isEligible(r.official_pct)
+            ? "Eligible"
+            : "Shortfall",
+    };
+  });
   const avgOfficial =
     withData.length > 0
       ? Math.round(
@@ -158,20 +188,31 @@ export default async function FacultyAttendance({
 
           {/* Roster table */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BookOpenCheck
-                  className="size-4 text-muted-foreground"
-                  aria-hidden="true"
+            <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+              <div className="space-y-1">
+                <CardTitle className="flex items-center gap-2">
+                  <BookOpenCheck
+                    className="size-4 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  {selectedCourse?.name}
+                  <span className="font-mono text-xs font-normal text-muted-foreground">
+                    {selected}
+                  </span>
+                </CardTitle>
+                <CardDescription>
+                  Students below 75% are highlighted and sorted to the top.
+                </CardDescription>
+              </div>
+              {rows.length > 0 && (
+                <ExportMenu
+                  filename={`course-attendance-${selected ?? "course"}`}
+                  title={`Course Attendance — ${selectedCourse?.name ?? selected}`}
+                  subtitle={`${selected}${selectedCourse ? ` · ${selectedCourse.semester}` : ""} · ${rows.length} enrolled`}
+                  columns={exportColumns}
+                  rows={exportRows}
                 />
-                {selectedCourse?.name}
-                <span className="font-mono text-xs font-normal text-muted-foreground">
-                  {selected}
-                </span>
-              </CardTitle>
-              <CardDescription>
-                Students below 75% are highlighted and sorted to the top.
-              </CardDescription>
+              )}
             </CardHeader>
             <CardContent>
               {rows.length === 0 ? (

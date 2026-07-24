@@ -10,6 +10,8 @@ import {
 } from "@/lib/attendance";
 import { KpiCard } from "@/components/kpi-card";
 import { GsapReveal } from "@/components/gsap-reveal";
+import { ExportMenu } from "@/components/export-menu";
+import type { ExportColumn, ExportRow } from "@/lib/export";
 import {
   Card,
   CardContent,
@@ -50,6 +52,24 @@ export default async function AdminAttendance() {
         ) / 100
       : null;
   const worst = coursesWithData[0] ?? null; // rollups are sorted worst-first
+
+  // Export: the per-course institution rollup, worst-first as displayed.
+  const exportColumns: ExportColumn[] = [
+    { key: "course", label: "Course" },
+    { key: "code", label: "Code" },
+    { key: "semester", label: "Semester" },
+    { key: "enrolled", label: "Enrolled" },
+    { key: "below", label: "Below 75%" },
+    { key: "average", label: "Average %" },
+  ];
+  const exportRows: ExportRow[] = rollups.map((r) => ({
+    course: r.course_name,
+    code: r.course_code,
+    semester: r.semester,
+    enrolled: r.enrolled,
+    below: r.belowThreshold,
+    average: r.avgOfficialPct ?? "",
+  }));
 
   return (
     <GsapReveal className="space-y-6">
@@ -118,12 +138,21 @@ export default async function AdminAttendance() {
 
           {/* Per-course rollup */}
           <Card>
-            <CardHeader>
-              <CardTitle>Courses</CardTitle>
-              <CardDescription>
-                Lowest average attendance first. Courses with students below
-                75% are flagged.
-              </CardDescription>
+            <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+              <div className="space-y-1">
+                <CardTitle>Courses</CardTitle>
+                <CardDescription>
+                  Lowest average attendance first. Courses with students below
+                  75% are flagged.
+                </CardDescription>
+              </div>
+              <ExportMenu
+                filename="institution-attendance-rollup"
+                title="Institution Attendance Rollup"
+                subtitle={`${courseCount} courses${institutionAvg !== null ? ` · avg ${institutionAvg}%` : ""}`}
+                columns={exportColumns}
+                rows={exportRows}
+              />
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
