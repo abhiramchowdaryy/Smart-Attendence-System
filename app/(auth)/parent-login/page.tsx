@@ -1,20 +1,22 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MapPin, ScanFace, TrendingUp, Users } from "lucide-react";
+import { ArrowLeft, BarChart3, CalendarCheck2, ShieldCheck } from "lucide-react";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { redirectToRoleHome } from "@/lib/auth";
 import { supabaseConfigured } from "@/lib/utils";
-import { LoginForm } from "./login-form";
+import { ParentLoginForm } from "./parent-login-form";
 import { LoginWatermark } from "@/components/login-watermark";
 import { LoginPreviewCards } from "@/components/login-preview-cards";
 import { PesLogo } from "@/components/pes-logo";
 
-export const metadata: Metadata = { title: "Sign in" };
+export const metadata: Metadata = { title: "Parent sign in" };
 
 const FEATURES = [
-  { Icon: ScanFace, text: "Face-verified attendance — no proxies" },
-  { Icon: MapPin, text: "Geofenced to your classroom" },
-  { Icon: TrendingUp, text: "Attendance ↔ performance insights" },
+  { Icon: CalendarCheck2, text: "See your child's attendance, class by class" },
+  { Icon: BarChart3, text: "Follow results and performance trends" },
+  { Icon: ShieldCheck, text: "Sign in with your child's student login" },
 ];
 
 /** Dot-grid texture, tinted per surface. */
@@ -29,14 +31,19 @@ const DOTS_DARKPANEL = {
   backgroundSize: "22px 22px",
 } as const;
 
-export default async function LoginPage() {
-  // Already signed in? Straight to the role home.
+export default async function ParentLoginPage() {
+  // Already signed in? A parent (parent_view cookie) goes to the parent
+  // dashboard; anyone else goes to their normal role home.
   if (supabaseConfigured()) {
     const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (user) await redirectToRoleHome(supabase, user.id);
+    if (user) {
+      const store = await cookies();
+      if (store.get("parent_view")?.value === "1") redirect("/parent/dashboard");
+      await redirectToRoleHome(supabase, user.id);
+    }
   }
 
   return (
@@ -73,10 +80,9 @@ export default async function LoginPage() {
 
           <div className="space-y-5">
             <h2 className="font-display text-4xl font-bold leading-[1.15]">
-              Attendance you can{" "}
-              <span className="text-[hsl(var(--pes-orange))]">trust</span>.
-              <br />
-              Insights you can act on.
+              Stay close to your{" "}
+              <span className="text-[hsl(var(--pes-orange))]">child&apos;s</span>{" "}
+              progress.
             </h2>
             <ul className="space-y-3">
               {FEATURES.map(({ Icon, text }) => (
@@ -144,15 +150,15 @@ export default async function LoginPage() {
                 </p>
               </div>
             )}
-            <LoginForm />
+            <ParentLoginForm />
 
-            {/* Parent of a registered student? Route to the parent sign-in. */}
+            {/* Route back to the student / staff sign-in */}
             <Link
-              href="/parent-login"
+              href="/login"
               className="flex items-center justify-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
-              <Users className="size-4" aria-hidden="true" />
-              Sign in as a parent
+              <ArrowLeft className="size-4" aria-hidden="true" />
+              Student or staff sign in
             </Link>
           </div>
         </div>

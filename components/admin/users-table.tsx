@@ -21,6 +21,7 @@ const ROLE_BADGE: Record<Role, "default" | "secondary" | "outline"> = {
   admin: "default",
   faculty: "secondary",
   student: "outline",
+  parent: "outline",
 };
 
 /**

@@ -2,7 +2,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseConfigured } from "@/lib/utils";
 
-const PROTECTED_PREFIXES = ["/student", "/faculty", "/admin"];
+const PROTECTED_PREFIXES = ["/student", "/faculty", "/admin", "/parent"];
 
 /**
  * Refreshes the session cookie and gates the role route groups behind

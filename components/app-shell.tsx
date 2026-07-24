@@ -31,6 +31,7 @@ const NAV: Record<Role, NavItem[]> = {
     { href: "/faculty/marks", label: "Marks" },
     { href: "/admin/settings", label: "GPS" },
   ],
+  parent: [{ href: "/parent/dashboard", label: "Dashboard" }],
 };
 
 /**

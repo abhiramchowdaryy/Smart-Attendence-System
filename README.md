@@ -15,6 +15,7 @@ TanStack Query + Zustand. All free-tier.
 |------|--------|
 | Email/password + magic-link sign-in, role-based redirect | ✅ |
 | Role-guarded sections (student / faculty / admin) + Postgres RLS | ✅ |
+| **Parent login** (`/parent-login`) — read-only view of a child's attendance & marks, using the student's own login | ✅ |
 | Student dashboard — live KPIs from Supabase (today, %, avg duration) | ✅ |
 | **Mark Attendance** — live camera face detection + geofence chip → entry/exit with timestamps, duration, late/partial status | ✅ |
 | Faculty dashboard — open/close sessions, live roster (15s polling), today's KPIs | ✅ |
@@ -77,6 +78,11 @@ account, promote it in the SQL Editor:
 update public.profiles set role = 'faculty' where id =
   (select id from auth.users where email = 'faculty@pes.edu');
 ```
+
+> **Parents need no account of their own.** A parent signs in at
+> `/parent-login` with their **child's own student email + password** and lands
+> on a read-only parent dashboard for that student — reached from the "Sign in
+> as a parent" link on the login page.
 
 **B. Seed script (scripted, needs the secret key).** Add
 `SUPABASE_SERVICE_ROLE_KEY` to `.env.local` — Project Settings → API Keys →

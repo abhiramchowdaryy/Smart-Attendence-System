@@ -5,6 +5,9 @@
  *   faculty@pes.edu  / Pes@12345   (role: faculty)
  *   admin@pes.edu    / Pes@12345   (role: admin)
  *
+ * Parent sign-in needs no separate account: a parent signs in on
+ * /parent-login with the student's own email + password (student@pes.edu).
+ *
  * Uses the service-role key from .env.local (server-side only — never
  * ship this key to the browser). Safe to re-run: existing users are
  * skipped, roles are re-asserted.
