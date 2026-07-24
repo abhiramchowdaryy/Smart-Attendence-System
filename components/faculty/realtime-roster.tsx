@@ -34,9 +34,13 @@ export function RealtimeRoster({
   useEffect(() => {
     const supabase = createClient();
     let fallback: ReturnType<typeof setInterval> | null = null;
+    // Guards against a late CLOSED status callback (fired by removeChannel on
+    // unmount) re-arming the fallback after cleanup has already cleared it.
+    let disposed = false;
     const refresh = () => routerRef.current.refresh();
 
     const startFallback = () => {
+      if (disposed) return;
       if (fallback === null) {
         fallback = setInterval(refresh, fallbackSeconds * 1000);
       }
@@ -80,6 +84,7 @@ export function RealtimeRoster({
     startFallback();
 
     return () => {
+      disposed = true;
       stopFallback();
       supabase.removeChannel(channel);
     };
