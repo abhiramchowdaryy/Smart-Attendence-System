@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useRef, useState, useTransition } from "react";
+import { useActionState, useState, useTransition } from "react";
 import {
   AlertCircle,
   CheckCircle2,
   Crosshair,
   LoaderCircle,
+  Map as MapIcon,
   MapPin,
   Plus,
   Trash2,
@@ -18,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MapPicker } from "@/components/admin/map-picker";
 
 export interface GeofenceRow {
   id: string;
@@ -29,10 +31,15 @@ export interface GeofenceRow {
 
 const INITIAL: AdminActionState = {};
 
+/** Where the map opens before a location is set (PES University, Bengaluru). */
+const DEFAULT_CENTER = { lat: 12.9351, lng: 77.5358 };
+
 /**
- * Geofence CRUD. "Use my location" fills lat/lng from the browser —
- * stand in the classroom, tap it, save. (The map-pin editor is the
- * Phase-2 upgrade; coordinates are the dependency-free MVP.)
+ * Geofence CRUD. Coordinates can be typed, filled from the browser with
+ * "Use my location" (stand in the classroom, tap it), or placed visually
+ * with "Pick on map" (a dependency-free OpenStreetMap picker). All three
+ * write the same controlled lat/lng, and the radius previews to scale on
+ * the map.
  */
 export function GeofenceManager({ geofences }: { geofences: GeofenceRow[] }) {
   const [state, action, pending] = useActionState(createGeofence, INITIAL);
@@ -41,8 +48,19 @@ export function GeofenceManager({ geofences }: { geofences: GeofenceRow[] }) {
   const [delError, setDelError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
-  const latRef = useRef<HTMLInputElement>(null);
-  const lngRef = useRef<HTMLInputElement>(null);
+
+  // Controlled so the map, the "use my location" button and the text inputs
+  // all share one source of truth for the coordinates.
+  const [lat, setLat] = useState("");
+  const [lng, setLng] = useState("");
+  const [radiusM, setRadiusM] = useState(100);
+  const [showMap, setShowMap] = useState(false);
+
+  // Numeric centre for the map: the typed coords when valid, else the default.
+  const latNum = Number(lat);
+  const lngNum = Number(lng);
+  const mapLat = Number.isFinite(latNum) && lat !== "" ? latNum : DEFAULT_CENTER.lat;
+  const mapLng = Number.isFinite(lngNum) && lng !== "" ? lngNum : DEFAULT_CENTER.lng;
 
   function useMyLocation() {
     setLocError(null);
@@ -53,8 +71,8 @@ export function GeofenceManager({ geofences }: { geofences: GeofenceRow[] }) {
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        if (latRef.current) latRef.current.value = pos.coords.latitude.toFixed(6);
-        if (lngRef.current) lngRef.current.value = pos.coords.longitude.toFixed(6);
+        setLat(pos.coords.latitude.toFixed(6));
+        setLng(pos.coords.longitude.toFixed(6));
         setLocating(false);
       },
       (err) => {
@@ -137,44 +155,72 @@ export function GeofenceManager({ geofences }: { geofences: GeofenceRow[] }) {
           <div className="space-y-2">
             <Label htmlFor="lat">Latitude</Label>
             <Input
-              ref={latRef}
               id="lat" name="lat" type="number" step="any"
               placeholder="12.935100" required
+              value={lat}
+              onChange={(e) => setLat(e.target.value)}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="lng">Longitude</Label>
             <Input
-              ref={lngRef}
               id="lng" name="lng" type="number" step="any"
               placeholder="77.535800" required
+              value={lng}
+              onChange={(e) => setLng(e.target.value)}
             />
           </div>
         </div>
 
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={useMyLocation}
-          disabled={locating}
-        >
-          {locating ? (
-            <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-          ) : (
-            <Crosshair className="size-4" aria-hidden="true" />
-          )}
-          {locating ? "Locating…" : "Use my current location"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={useMyLocation}
+            disabled={locating}
+          >
+            {locating ? (
+              <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Crosshair className="size-4" aria-hidden="true" />
+            )}
+            {locating ? "Locating…" : "Use my current location"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            aria-expanded={showMap}
+            onClick={() => setShowMap((v) => !v)}
+          >
+            <MapIcon className="size-4" aria-hidden="true" />
+            {showMap ? "Hide map" : "Pick on map"}
+          </Button>
+        </div>
         {locError && (
           <p role="alert" className="text-sm text-destructive">{locError}</p>
+        )}
+
+        {showMap && (
+          <MapPicker
+            lat={mapLat}
+            lng={mapLng}
+            radiusM={radiusM}
+            onChange={({ lat: nlat, lng: nlng }) => {
+              setLat(nlat.toFixed(6));
+              setLng(nlng.toFixed(6));
+            }}
+          />
         )}
 
         <div className="space-y-2">
           <Label htmlFor="radiusM">Radius (metres)</Label>
           <Input
             id="radiusM" name="radiusM" type="number"
-            min={5} max={2000} defaultValue={100} required
+            min={5} max={2000} required
+            value={radiusM}
+            onChange={(e) => setRadiusM(Number(e.target.value))}
           />
         </div>
 
