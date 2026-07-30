@@ -1,8 +1,13 @@
-import type { Metadata } from "next";
-import Link from "next/link";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { Link, useSearchParams } from "react-router-dom";
 import { BookMarked, Pencil, UserPlus } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { PageSkeleton } from "@/components/page-skeleton";
+import { SectionError } from "@/components/section-error";
+import { PageTitle } from "@/src/page-title";
 import { CourseForm } from "@/components/faculty/course-form";
 import {
   EnrollmentManager,
@@ -19,8 +24,6 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Courses" };
-
 interface CourseRow {
   code: string;
   name: string;
@@ -28,37 +31,58 @@ interface CourseRow {
   semester: string;
 }
 
-export default async function CoursesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ course?: string; edit?: string }>;
-}) {
-  await requireRole(["faculty", "admin"]);
-  const supabase = await createClient();
-  const { course, edit } = await searchParams;
+export default function CoursesPage() {
+  const { profile } = useAuth();
+  const [searchParams] = useSearchParams();
+  const course = searchParams.get("course") ?? undefined;
+  const edit = searchParams.get("edit") ?? undefined;
 
-  const [{ data: courseRows }, { data: studentRows }, { data: enrollmentRows }] =
-    await Promise.all([
-      supabase
-        .from("courses")
-        .select("code, name, credits, semester")
-        .order("semester")
-        .order("name")
-        .returns<CourseRow[]>(),
-      supabase
-        .from("profiles")
-        .select("id, full_name, roll_no")
-        .eq("role", "student")
-        .order("full_name")
-        .returns<StudentOption[]>(),
-      supabase
-        .from("enrollments")
-        .select("course_code, student_id, active"),
-    ]);
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["faculty-courses", profile?.id],
+    enabled: !!profile,
+    queryFn: async () => {
+      const supabase = createClient();
 
-  const courses = courseRows ?? [];
-  const students = studentRows ?? [];
-  const enrollments = enrollmentRows ?? [];
+      const [
+        { data: courseRows },
+        { data: studentRows },
+        { data: enrollmentRows },
+      ] = await Promise.all([
+        supabase
+          .from("courses")
+          .select("code, name, credits, semester")
+          .order("semester")
+          .order("name")
+          .returns<CourseRow[]>(),
+        supabase
+          .from("profiles")
+          .select("id, full_name, roll_no")
+          .eq("role", "student")
+          .order("full_name")
+          .returns<StudentOption[]>(),
+        supabase
+          .from("enrollments")
+          .select("course_code, student_id, active"),
+      ]);
+
+      return {
+        courses: courseRows ?? [],
+        students: studentRows ?? [],
+        enrollments: enrollmentRows ?? [],
+      };
+    },
+  });
+
+  if (!profile || isLoading) return <PageSkeleton />;
+  if (isError || !data)
+    return (
+      <SectionError
+        error={new Error("Could not load courses.")}
+        reset={() => refetch()}
+      />
+    );
+
+  const { courses, students, enrollments } = data;
 
   const activeByCourse = new Map<string, string[]>();
   for (const e of enrollments) {
@@ -77,6 +101,7 @@ export default async function CoursesPage({
 
   return (
     <GsapReveal className="space-y-6">
+      <PageTitle title="Courses" />
       <div>
         <h1 className="text-2xl font-bold">Courses &amp; Enrolment</h1>
         <p className="text-sm text-muted-foreground">
@@ -127,7 +152,7 @@ export default async function CoursesPage({
                         >
                           <td className="py-2.5 pr-4">
                             <Link
-                              href={`/faculty/courses?course=${encodeURIComponent(c.code)}`}
+                              to={`/faculty/courses?course=${encodeURIComponent(c.code)}`}
                               className="block"
                             >
                               <span className="font-medium">{c.name}</span>
@@ -147,7 +172,7 @@ export default async function CoursesPage({
                           </td>
                           <td className="py-2.5 text-right">
                             <Link
-                              href={`/faculty/courses?course=${encodeURIComponent(selectedCode ?? c.code)}&edit=${encodeURIComponent(c.code)}`}
+                              to={`/faculty/courses?course=${encodeURIComponent(selectedCode ?? c.code)}&edit=${encodeURIComponent(c.code)}`}
                               aria-label={`Edit ${c.name}`}
                               className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                             >

@@ -1,7 +1,12 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
 import { BookOpenCheck } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { PageSkeleton } from "@/components/page-skeleton";
+import { SectionError } from "@/components/section-error";
+import { PageTitle } from "@/src/page-title";
 import { GsapReveal } from "@/components/gsap-reveal";
 import { MarksForm } from "@/components/faculty/marks-form";
 import {
@@ -11,8 +16,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-export const metadata: Metadata = { title: "Upload Marks" };
 
 interface MarkRow {
   id: string;
@@ -24,37 +27,60 @@ interface MarkRow {
   profiles: { full_name: string; roll_no: string | null } | null;
 }
 
-export default async function MarksPage() {
-  await requireRole(["faculty", "admin"]);
-  const supabase = await createClient();
+export default function MarksPage() {
+  const { profile } = useAuth();
 
-  const { data: students } = await supabase
-    .from("profiles")
-    .select("id, full_name, roll_no")
-    .eq("role", "student")
-    .order("full_name");
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["faculty-marks", profile?.id],
+    enabled: !!profile,
+    queryFn: async () => {
+      const supabase = createClient();
 
-  // Course suggestions from past sessions.
-  const { data: sessionCourses } = await supabase
-    .from("sessions")
-    .select("course")
-    .order("opened_at", { ascending: false })
-    .limit(50);
-  const courses = Array.from(
-    new Set((sessionCourses ?? []).map((s) => s.course))
-  );
+      const [{ data: students }, { data: sessionCourses }, { data: marks }] =
+        await Promise.all([
+          supabase
+            .from("profiles")
+            .select("id, full_name, roll_no")
+            .eq("role", "student")
+            .order("full_name"),
+          // Course suggestions from past sessions.
+          supabase
+            .from("sessions")
+            .select("course")
+            .order("opened_at", { ascending: false })
+            .limit(50),
+          supabase
+            .from("marks")
+            .select(
+              "id, course, assessment, score, max_score, updated_at, profiles!marks_student_id_fkey(full_name, roll_no)"
+            )
+            .order("updated_at", { ascending: false })
+            .limit(30)
+            .returns<MarkRow[]>(),
+        ]);
 
-  const { data: marks } = await supabase
-    .from("marks")
-    .select(
-      "id, course, assessment, score, max_score, updated_at, profiles!marks_student_id_fkey(full_name, roll_no)"
-    )
-    .order("updated_at", { ascending: false })
-    .limit(30)
-    .returns<MarkRow[]>();
+      const courses = Array.from(
+        new Set((sessionCourses ?? []).map((s) => s.course))
+      );
+
+      return { students: students ?? [], courses, marks: marks ?? [] };
+    },
+  });
+
+  if (!profile || isLoading) return <PageSkeleton />;
+  if (isError || !data)
+    return (
+      <SectionError
+        error={new Error("Could not load marks.")}
+        reset={() => refetch()}
+      />
+    );
+
+  const { students, courses, marks } = data;
 
   return (
     <GsapReveal className="space-y-6">
+      <PageTitle title="Upload Marks" />
       <div>
         <h1 className="text-2xl font-bold">Upload Marks</h1>
         <p className="text-sm text-muted-foreground">
