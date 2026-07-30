@@ -1,8 +1,10 @@
-import type { Metadata } from "next";
-import Link from "next/link";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { Link, useSearchParams } from "react-router-dom";
 import { Users, AlertTriangle, Percent, BookOpenCheck } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth";
 import {
   fetchCourseAttendance,
   isEligible,
@@ -10,6 +12,9 @@ import {
   attendedCount,
   type AttendanceSummaryRow,
 } from "@/lib/attendance";
+import { PageSkeleton } from "@/components/page-skeleton";
+import { SectionError } from "@/components/section-error";
+import { PageTitle } from "@/src/page-title";
 import { KpiCard } from "@/components/kpi-card";
 import { GsapReveal } from "@/components/gsap-reveal";
 import { EligibilityBadge } from "@/components/eligibility-badge";
@@ -25,53 +30,71 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Course Attendance" };
-
 interface CourseOption {
   code: string;
   name: string;
   semester: string;
 }
 
-export default async function FacultyAttendance({
-  searchParams,
-}: {
-  searchParams: Promise<{ course?: string }>;
-}) {
-  await requireRole(["faculty", "admin"]);
-  const supabase = await createClient();
+export default function FacultyAttendance() {
+  const { profile } = useAuth();
+  const [searchParams] = useSearchParams();
+  const course = searchParams.get("course") ?? undefined;
 
-  // Courses that actually have enrollments to report on.
-  const { data: courseRows } = await supabase
-    .from("courses")
-    .select("code, name, semester")
-    .order("semester")
-    .order("name")
-    .returns<CourseOption[]>();
-  const courses = courseRows ?? [];
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["faculty-attendance", profile?.id, course ?? null],
+    enabled: !!profile,
+    queryFn: async () => {
+      const supabase = createClient();
 
-  const { course } = await searchParams;
-  const selected =
-    course && courses.some((c) => c.code === course)
-      ? course
-      : courses[0]?.code ?? null;
+      // Courses that actually have enrollments to report on.
+      const { data: courseRows } = await supabase
+        .from("courses")
+        .select("code, name, semester")
+        .order("semester")
+        .order("name")
+        .returns<CourseOption[]>();
+      const courses = courseRows ?? [];
+
+      const selected =
+        course && courses.some((c) => c.code === course)
+          ? course
+          : courses[0]?.code ?? null;
+
+      const rows: AttendanceSummaryRow[] = selected
+        ? await fetchCourseAttendance(supabase, selected)
+        : [];
+
+      // The view carries student_id but not names — resolve them (staff RLS).
+      const ids = rows.map((r) => r.student_id);
+      const nameById = new Map<
+        string,
+        { full_name: string; roll_no: string | null }
+      >();
+      if (ids.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name, roll_no")
+          .in("id", ids);
+        for (const p of profiles ?? [])
+          nameById.set(p.id, { full_name: p.full_name, roll_no: p.roll_no });
+      }
+
+      return { courses, selected, rows, nameById };
+    },
+  });
+
+  if (!profile || isLoading) return <PageSkeleton />;
+  if (isError || !data)
+    return (
+      <SectionError
+        error={new Error("Could not load course attendance.")}
+        reset={() => refetch()}
+      />
+    );
+
+  const { courses, selected, rows, nameById } = data;
   const selectedCourse = courses.find((c) => c.code === selected) ?? null;
-
-  const rows: AttendanceSummaryRow[] = selected
-    ? await fetchCourseAttendance(supabase, selected)
-    : [];
-
-  // The view carries student_id but not names — resolve them (staff RLS).
-  const ids = rows.map((r) => r.student_id);
-  const nameById = new Map<string, { full_name: string; roll_no: string | null }>();
-  if (ids.length > 0) {
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, full_name, roll_no")
-      .in("id", ids);
-    for (const p of profiles ?? [])
-      nameById.set(p.id, { full_name: p.full_name, roll_no: p.roll_no });
-  }
 
   // Shortfall first (lowest official % on top); "No data" sinks to the bottom.
   const sorted = [...rows].sort(
@@ -119,6 +142,7 @@ export default async function FacultyAttendance({
 
   return (
     <GsapReveal className="space-y-6">
+      <PageTitle title="Course Attendance" />
       <div>
         <h1 className="text-2xl font-bold">Course Attendance</h1>
         <p className="text-sm text-muted-foreground">
@@ -140,7 +164,7 @@ export default async function FacultyAttendance({
             {courses.map((c) => (
               <Link
                 key={c.code}
-                href={`/faculty/attendance?course=${encodeURIComponent(c.code)}`}
+                to={`/faculty/attendance?course=${encodeURIComponent(c.code)}`}
                 role="tab"
                 aria-selected={c.code === selected}
                 className={cn(

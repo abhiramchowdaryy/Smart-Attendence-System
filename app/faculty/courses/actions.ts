@@ -1,7 +1,6 @@
-"use server";
+"use client";
 
-import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface CourseActionState {
@@ -19,7 +18,7 @@ async function requireStaff(): Promise<
   | { supabase: SupabaseClient; error: null }
   | { supabase: null; error: string }
 > {
-  const supabase = await createClient();
+  const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -70,7 +69,6 @@ export async function upsertCourse(
 
   if (error) return { error: error.message };
 
-  revalidatePath("/faculty/courses");
   return { message: `Saved ${code} — ${name} (${credits} cr, ${semester}).` };
 }
 
@@ -127,8 +125,6 @@ export async function setEnrollments(
     if (error) return { error: error.message };
   }
 
-  revalidatePath("/faculty/courses");
-  revalidatePath("/faculty/attendance");
   return {
     message: `Roster saved — ${studentIds.length} student${studentIds.length === 1 ? "" : "s"} enrolled in ${courseCode}.`,
   };

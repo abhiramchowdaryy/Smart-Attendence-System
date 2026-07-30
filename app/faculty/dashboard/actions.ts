@@ -1,7 +1,6 @@
-"use server";
+"use client";
 
-import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/client";
 
 export interface SessionFormState {
   error?: string;
@@ -10,7 +9,7 @@ export interface SessionFormState {
 
 /** Staff check shared by both actions (RLS enforces this too). */
 async function requireStaff() {
-  const supabase = await createClient();
+  const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -57,8 +56,6 @@ export async function openSession(
   });
   if (insertError) return { error: insertError.message };
 
-  revalidatePath("/faculty/dashboard");
-  revalidatePath("/student/mark-attendance");
   return { message: `Session "${course}" is open — students can mark now.` };
 }
 
@@ -86,8 +83,5 @@ export async function closeSession(sessionId: string): Promise<SessionFormState>
     .is("exit_time", null);
   if (exitError) return { error: exitError.message };
 
-  revalidatePath("/faculty/dashboard");
-  revalidatePath("/student/mark-attendance");
-  revalidatePath("/student/dashboard");
   return { message: "Session closed — open records stamped with exit time." };
 }

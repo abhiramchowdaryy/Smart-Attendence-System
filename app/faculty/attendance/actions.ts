@@ -1,6 +1,6 @@
-"use server";
+"use client";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/client";
 
 export interface NotifyResult {
   ok: boolean;
@@ -13,13 +13,13 @@ export interface NotifyResult {
 /**
  * Invokes the notify-shortfall edge function, which SMSes the parents of
  * students below 75% in a course via Twilio. Staff-gated here and again
- * inside the function (which verifies the caller's JWT + role). The server
- * SSR client forwards the signed-in user's access token to the function.
+ * inside the function (which verifies the caller's JWT + role). The browser
+ * client forwards the signed-in user's access token to the function.
  */
 export async function notifyShortfallParents(
   courseCode: string
 ): Promise<NotifyResult> {
-  const supabase = await createClient();
+  const supabase = createClient();
 
   const {
     data: { user },
