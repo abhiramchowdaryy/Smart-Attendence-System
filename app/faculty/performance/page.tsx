@@ -1,7 +1,12 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Sigma, TrendingUp, Users } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { PageSkeleton } from "@/components/page-skeleton";
+import { SectionError } from "@/components/section-error";
+import { PageTitle } from "@/src/page-title";
 import { GsapReveal } from "@/components/gsap-reveal";
 import { KpiCard } from "@/components/kpi-card";
 import { Badge } from "@/components/ui/badge";
@@ -20,35 +25,66 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export const metadata: Metadata = { title: "Performance Analysis" };
+export default function PerformancePage() {
+  const { profile } = useAuth();
 
-export default async function PerformancePage() {
-  await requireRole(["faculty", "admin"]);
-  const supabase = await createClient();
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["faculty-performance", profile?.id],
+    enabled: !!profile,
+    queryFn: async () => {
+      const supabase = createClient();
 
-  // Denominator: all sessions ever held.
-  const { count: totalSessions } = await supabase
-    .from("sessions")
-    .select("id", { count: "exact", head: true });
+      const [
+        { count: totalSessions },
+        { data: attendanceRows },
+        { data: markRows },
+        { data: students },
+      ] = await Promise.all([
+        // Denominator: all sessions ever held.
+        supabase
+          .from("sessions")
+          .select("id", { count: "exact", head: true }),
+        // Every student's attended sessions.
+        supabase
+          .from("attendance")
+          .select("student_id, status")
+          .neq("status", "absent"),
+        // Every student's marks.
+        supabase.from("marks").select("student_id, score, max_score"),
+        // Names for everyone who has at least one mark.
+        supabase
+          .from("profiles")
+          .select("id, full_name, roll_no")
+          .eq("role", "student"),
+      ]);
 
-  // Every student's attended sessions.
-  const { data: attendanceRows } = await supabase
-    .from("attendance")
-    .select("student_id, status")
-    .neq("status", "absent");
+      return {
+        totalSessions: totalSessions ?? 0,
+        attendanceRows: attendanceRows ?? [],
+        markRows: markRows ?? [],
+        students: students ?? [],
+      };
+    },
+  });
+
+  if (!profile || isLoading) return <PageSkeleton />;
+  if (isError || !data)
+    return (
+      <SectionError
+        error={new Error("Could not load performance analysis.")}
+        reset={() => refetch()}
+      />
+    );
+
+  const { totalSessions, attendanceRows, markRows, students } = data;
 
   const attendedBy = new Map<string, number>();
-  for (const row of attendanceRows ?? []) {
+  for (const row of attendanceRows) {
     attendedBy.set(row.student_id, (attendedBy.get(row.student_id) ?? 0) + 1);
   }
 
-  // Every student's marks.
-  const { data: markRows } = await supabase
-    .from("marks")
-    .select("student_id, score, max_score");
-
   const marksBy = new Map<string, { totalPct: number; n: number }>();
-  for (const row of markRows ?? []) {
+  for (const row of markRows) {
     const pct = (Number(row.score) / Number(row.max_score)) * 100;
     const agg = marksBy.get(row.student_id) ?? { totalPct: 0, n: 0 };
     agg.totalPct += pct;
@@ -56,14 +92,8 @@ export default async function PerformancePage() {
     marksBy.set(row.student_id, agg);
   }
 
-  // Names for everyone who has at least one mark.
-  const { data: students } = await supabase
-    .from("profiles")
-    .select("id, full_name, roll_no")
-    .eq("role", "student");
-
-  const held = totalSessions ?? 0;
-  const rows = (students ?? [])
+  const held = totalSessions;
+  const rows = students
     .filter((s) => marksBy.has(s.id))
     .map((s) => {
       const marks = marksBy.get(s.id)!;
@@ -104,6 +134,7 @@ export default async function PerformancePage() {
 
   return (
     <GsapReveal className="space-y-6">
+      <PageTitle title="Performance Analysis" />
       <div>
         <h1 className="text-2xl font-bold">Performance Analysis</h1>
         <p className="text-sm text-muted-foreground">
