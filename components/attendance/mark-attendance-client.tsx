@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { CheckCircle2, DoorOpen, LoaderCircle, XCircle } from "lucide-react";
@@ -52,7 +52,7 @@ export function MarkAttendanceClient({
   accuracyGraceM,
   serverVerification = false,
 }: Props) {
-  const router = useRouter();
+  const queryClient = useQueryClient();
   const geo = useGeofence(
     session.center,
     session.radiusM,
@@ -146,7 +146,11 @@ export function MarkAttendanceClient({
                 }
               : { kind: "error", message: res.error ?? "Something went wrong." }
           );
-          if (res.ok) setTimeout(() => router.refresh(), 1600);
+          if (res.ok)
+            setTimeout(() => {
+              queryClient.invalidateQueries({ queryKey: ["mark-attendance"] });
+              queryClient.invalidateQueries({ queryKey: ["student-dashboard"] });
+            }, 1600);
         });
       }}
     />
