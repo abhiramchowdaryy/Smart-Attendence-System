@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 export interface NavItem {
@@ -10,20 +9,12 @@ export interface NavItem {
 }
 
 /**
- * Role-scoped primary navigation.
- *
- * Client component only so it can read the pathname and mark the active
- * route — everything else about the shell stays a Server Component.
- *
- * Layout note: the student role has six destinations, which overflows a
- * 375 px header. Rather than hiding them behind a hamburger (an extra tap
- * on the app's most-used controls), the strip scrolls horizontally and the
- * scrollbar is hidden — the standard mobile pattern for a small, flat nav.
- * `overflow-x-auto` on a `min-w-0` flex child is what actually lets it
- * shrink instead of pushing the sign-out button off the edge.
+ * Role-scoped primary navigation. Reads the current path to mark the active
+ * route. The strip scrolls horizontally on narrow screens (the student role
+ * has six destinations) rather than hiding behind a hamburger.
  */
 export function AppNav({ items }: { items: NavItem[] }) {
-  const pathname = usePathname();
+  const { pathname } = useLocation();
 
   return (
     <nav
@@ -36,7 +27,7 @@ export function AppNav({ items }: { items: NavItem[] }) {
         return (
           <Link
             key={item.href}
-            href={item.href}
+            to={item.href}
             aria-current={active ? "page" : undefined}
             className={cn(
               "shrink-0 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors",
