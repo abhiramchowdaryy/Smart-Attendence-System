@@ -1,10 +1,15 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
 import { ShieldCheck } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { isValidDescriptor } from "@/lib/face";
-import { faceServiceConfigured } from "@/lib/face-service";
+import { FACE_VERIFICATION_ENABLED } from "@/app/student/enroll-face/actions";
 import { FaceEnrollment } from "@/components/face/face-enrollment";
+import { PageSkeleton } from "@/components/page-skeleton";
+import { SectionError } from "@/components/section-error";
+import { PageTitle } from "@/src/page-title";
 import { GsapReveal } from "@/components/gsap-reveal";
 import {
   Card,
@@ -14,23 +19,38 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export const metadata: Metadata = { title: "Enrol Face" };
+export default function EnrollFacePage() {
+  const { profile } = useAuth();
+  const serverVerification = FACE_VERIFICATION_ENABLED;
 
-export default async function EnrollFacePage() {
-  const profile = await requireRole(["student"]);
-  const supabase = await createClient();
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["enroll-face", profile?.id],
+    enabled: !!profile,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("profiles")
+        .select("face_embedding")
+        .eq("id", profile!.id)
+        .maybeSingle();
+      return { enrolled: isValidDescriptor(data?.face_embedding) };
+    },
+  });
 
-  const { data } = await supabase
-    .from("profiles")
-    .select("face_embedding")
-    .eq("id", profile.id)
-    .maybeSingle();
+  if (!profile || isLoading) return <PageSkeleton />;
+  if (isError || !data)
+    return (
+      <SectionError
+        error={new Error("Could not load your enrolment status.")}
+        reset={() => refetch()}
+      />
+    );
 
-  const enrolled = isValidDescriptor(data?.face_embedding);
-  const serverVerification = faceServiceConfigured();
+  const enrolled = data.enrolled;
 
   return (
     <GsapReveal className="mx-auto max-w-md space-y-4">
+      <PageTitle title="Enrol Face" />
       <div>
         <h1 className="text-2xl font-bold">Face Enrolment</h1>
         <p className="text-sm text-muted-foreground">

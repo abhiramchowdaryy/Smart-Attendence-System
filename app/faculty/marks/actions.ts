@@ -1,7 +1,6 @@
-"use server";
+"use client";
 
-import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/client";
 
 export interface MarkFormState {
   error?: string;
@@ -17,7 +16,7 @@ export async function upsertMark(
   _prev: MarkFormState,
   formData: FormData
 ): Promise<MarkFormState> {
-  const supabase = await createClient();
+  const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -60,8 +59,5 @@ export async function upsertMark(
   );
   if (error) return { error: error.message };
 
-  revalidatePath("/faculty/marks");
-  revalidatePath("/faculty/performance");
-  revalidatePath("/student/dashboard");
   return { message: `Saved ${assessment} for the student — ${score}/${maxScore}.` };
 }

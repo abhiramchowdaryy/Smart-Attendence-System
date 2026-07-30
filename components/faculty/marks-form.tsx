@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle2, LoaderCircle, Save } from "lucide-react";
 import { upsertMark, type MarkFormState } from "@/app/faculty/marks/actions";
 import { Button } from "@/components/ui/button";
@@ -23,10 +24,28 @@ export function MarksForm({
   students: StudentOption[];
   courses: string[];
 }) {
-  const [state, action, pending] = useActionState(upsertMark, INITIAL);
+  const qc = useQueryClient();
+  const [state, setState] = useState<MarkFormState>(INITIAL);
+  const [pending, setPending] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setPending(true);
+    const formData = new FormData(e.currentTarget);
+    const result = await upsertMark(state, formData);
+    setState(result);
+    setPending(false);
+    if (result.message) {
+      // Mirror revalidatePath("/faculty/marks") + ("/faculty/performance") +
+      // ("/student/dashboard").
+      qc.invalidateQueries({ queryKey: ["faculty-marks"] });
+      qc.invalidateQueries({ queryKey: ["faculty-performance"] });
+      qc.invalidateQueries({ queryKey: ["student-dashboard"] });
+    }
+  }
 
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="studentId">Student</Label>
         <select

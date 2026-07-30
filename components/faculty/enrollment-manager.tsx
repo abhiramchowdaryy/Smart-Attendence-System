@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   CheckCircle2,
@@ -34,6 +35,7 @@ export function EnrollmentManager({
   students: StudentOption[];
   enrolledIds: string[];
 }) {
+  const qc = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set(enrolledIds));
   const [result, setResult] = useState<CourseActionState>({});
   const [pending, startTransition] = useTransition();
@@ -123,7 +125,14 @@ export function EnrollmentManager({
           disabled={pending || !dirty}
           onClick={() =>
             startTransition(async () => {
-              setResult(await setEnrollments(courseCode, [...selected]));
+              const res = await setEnrollments(courseCode, [...selected]);
+              setResult(res);
+              if (res.message) {
+                // Mirror revalidatePath("/faculty/courses") +
+                // ("/faculty/attendance").
+                qc.invalidateQueries({ queryKey: ["faculty-courses"] });
+                qc.invalidateQueries({ queryKey: ["faculty-attendance"] });
+              }
             })
           }
         >

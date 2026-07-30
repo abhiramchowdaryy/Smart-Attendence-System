@@ -1,16 +1,20 @@
-"use server";
+"use client";
 
-import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/client";
 import { checkSessionGeofence, effectiveGraceM } from "@/lib/geofence";
 import { euclideanDistance, isFaceMatch, isValidDescriptor } from "@/lib/face";
-import {
-  faceServiceConfigured,
-  isValidServerEmbedding,
-  verifyFace,
-} from "@/lib/face-service";
 import { fetchGpsSettings } from "@/lib/gps-settings";
 import { FACE_CONFIDENCE_MIN, firstRow } from "@/lib/utils";
+import { FACE_VERIFICATION_ENABLED } from "@/app/student/enroll-face/actions";
+
+/** Guard: is this stored value a usable server embedding? */
+function isValidServerEmbedding(value: unknown): value is number[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((x) => typeof x === "number" && Number.isFinite(x))
+  );
+}
 
 export interface MarkResult {
   ok: boolean;
@@ -21,8 +25,12 @@ export interface MarkResult {
 }
 
 /**
- * Authoritative attendance entry: the browser's geofence hook is UX only,
- * so this re-validates the coordinates server-side before inserting.
+ * Attendance entry. The browser's geofence hook is UX only, so this
+ * re-validates the coordinates before inserting. Face identity is checked
+ * against the enrolled descriptor and, when enabled, the live image is
+ * re-verified by the `face-verify` edge function (raw pixels re-embedded
+ * server-side — the authoritative identity check a forged descriptor can't
+ * pass). RLS on `attendance` is the ultimate gate.
  */
 export async function markEntry(input: {
   sessionId: string;
@@ -30,16 +38,13 @@ export async function markEntry(input: {
   lng: number;
   accuracy: number;
   faceConfidence: number;
-  /** Live 128-d face descriptor, matched server-side against enrolment. */
+  /** Live 128-d face descriptor, matched against enrolment. */
   descriptor: number[];
-  /**
-   * Live still frame (data URL). Sent when FACE_SERVICE_URL is configured so
-   * the DeepFace service re-embeds the raw pixels server-side — the
-   * authoritative identity check that a forged descriptor can't pass.
-   */
+  /** Live still frame (data URL). Sent to the face-verify edge function when
+   *  server verification is enabled. */
   image?: string | null;
 }): Promise<MarkResult> {
-  const supabase = await createClient();
+  const supabase = createClient();
 
   const {
     data: { user },
@@ -59,12 +64,7 @@ export async function markEntry(input: {
     return { ok: false, error: "Face confidence too low — try again in better lighting." };
   }
 
-  // ── Server-side face identity check ────────────────────────────────
-  // The browser produces the live descriptor, but the match decision is made
-  // here against the enrolled descriptor — the client cannot assert its own
-  // identity. When the DeepFace service is configured and the student has a
-  // server embedding, we additionally re-verify the live *image* on the server
-  // (raw pixels re-embedded there), which a forged descriptor cannot pass.
+  // ── Face identity check ────────────────────────────────────────────
   if (!isValidDescriptor(input.descriptor)) {
     return { ok: false, error: "Face capture was invalid — please retry." };
   }
@@ -88,28 +88,26 @@ export async function markEntry(input: {
     };
   }
 
-  // ── Authoritative server-side re-verification (DeepFace) ───────────
-  // Only when the service is on AND a server embedding exists (students
-  // enrolled before the service was configured have none, and fall back to the
+  // ── Authoritative re-verification via the face-verify edge function ──
+  // Only when verification is enabled AND a server embedding exists (students
+  // enrolled before it was configured have none, and fall back to the
   // descriptor match above — non-breaking).
-  if (faceServiceConfigured() && isValidServerEmbedding(me!.face_embedding_server)) {
+  if (FACE_VERIFICATION_ENABLED && isValidServerEmbedding(me!.face_embedding_server)) {
     if (!input.image) {
       return { ok: false, error: "Camera capture was missing — please retry." };
     }
-    const verified = await verifyFace({
-      image: input.image,
-      referenceEmbedding: me!.face_embedding_server,
-    });
-    if (!verified.ok) {
+    const { data: verified, error: verifyError } = await supabase.functions.invoke(
+      "face-verify",
+      { body: { image: input.image, referenceEmbedding: me!.face_embedding_server } }
+    );
+    if (verifyError || !verified) {
       return {
         ok: false,
         error:
-          verified.status === 422
-            ? "Couldn't read a single clear face — face the camera in good light and retry."
-            : "Face verification service is unavailable — please try again shortly.",
+          "Face verification service is unavailable — please try again shortly.",
       };
     }
-    if (!verified.data.verified) {
+    if (!verified.verified) {
       return {
         ok: false,
         error: "Face does not match your enrolment — please try again.",
@@ -138,8 +136,6 @@ export async function markEntry(input: {
   const gps = await fetchGpsSettings(supabase);
 
   // ── The authoritative geofence check (PostGIS ST_DWithin) ─────────
-  // The grace is the reported GPS accuracy, capped at the admin policy, so
-  // the DB path and the Haversine fallback apply an identical allowance.
   const graceM = effectiveGraceM(input.accuracy, gps.accuracyGraceM);
   const geo = await checkSessionGeofence(supabase, {
     sessionId: session.id,
@@ -180,14 +176,12 @@ export async function markEntry(input: {
     return { ok: false, error: insertError.message };
   }
 
-  revalidatePath("/student/dashboard");
-  revalidatePath("/student/mark-attendance");
   return { ok: true, status, lateAfterMin: gps.lateAfterMin };
 }
 
 /** Records exit time; leaving while the session is still open marks "partial". */
 export async function markExit(attendanceId: string): Promise<MarkResult> {
-  const supabase = await createClient();
+  const supabase = createClient();
 
   const {
     data: { user },
@@ -211,8 +205,6 @@ export async function markExit(attendanceId: string): Promise<MarkResult> {
     .from("attendance")
     .update({
       exit_time: new Date().toISOString(),
-      // Leaving before the session closes downgrades to "partial",
-      // but a "late" entry stays late.
       ...(leftEarly && record.status === "present" ? { status: "partial" } : {}),
     })
     .eq("id", attendanceId)
@@ -220,7 +212,5 @@ export async function markExit(attendanceId: string): Promise<MarkResult> {
 
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath("/student/dashboard");
-  revalidatePath("/student/mark-attendance");
   return { ok: true };
 }

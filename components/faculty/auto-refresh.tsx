@@ -1,23 +1,24 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 
 /**
- * Generic "poll router.refresh() every N seconds" helper.
- *
- * The faculty roster now stays current via Supabase Realtime
- * (components/faculty/realtime-roster.tsx), which uses this pattern only as
- * a slow fallback when the realtime socket can't connect. Kept as a small,
- * dependency-free utility for any view that just wants periodic refresh.
+ * Generic "call onRefresh() every N seconds" helper. The faculty roster stays
+ * current via Supabase Realtime (components/faculty/realtime-roster.tsx); this
+ * is the slow fallback. In the SSR build it called router.refresh(); now the
+ * caller passes a refetch/invalidate callback.
  */
-export function AutoRefresh({ seconds = 15 }: { seconds?: number }) {
-  const router = useRouter();
-
+export function AutoRefresh({
+  seconds = 15,
+  onRefresh,
+}: {
+  seconds?: number;
+  onRefresh: () => void;
+}) {
   useEffect(() => {
-    const id = setInterval(() => router.refresh(), seconds * 1000);
+    const id = setInterval(onRefresh, seconds * 1000);
     return () => clearInterval(id);
-  }, [router, seconds]);
+  }, [onRefresh, seconds]);
 
   return null;
 }

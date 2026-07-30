@@ -1,16 +1,16 @@
-import type { Metadata } from "next";
-import Link from "next/link";
+"use client";
+
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { AlertCircle, MapPin, ScanFace, TrendingUp, Users } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { redirectToRoleHome } from "@/lib/auth";
+import { useAuth, roleHome } from "@/lib/auth";
 import { supabaseConfigured } from "@/lib/utils";
+import { PageSkeleton } from "@/components/page-skeleton";
+import { PageTitle } from "@/src/page-title";
 import { LoginForm } from "./login-form";
 import { loginErrorMessage } from "./login-errors";
 import { LoginWatermark } from "@/components/login-watermark";
 import { LoginPreviewCards } from "@/components/login-preview-cards";
 import { PesLogo } from "@/components/pes-logo";
-
-export const metadata: Metadata = { title: "Sign in" };
 
 const FEATURES = [
   { Icon: ScanFace, text: "Face-verified attendance — no proxies" },
@@ -30,30 +30,23 @@ const DOTS_DARKPANEL = {
   backgroundSize: "22px 22px",
 } as const;
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
-  // Already signed in? Straight to the role home.
-  if (supabaseConfigured()) {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) await redirectToRoleHome(supabase, user.id);
-  }
+export default function LoginPage() {
+  const { loading, user, profile } = useAuth();
+  const [searchParams] = useSearchParams();
 
-  // Google sign-in failures come back from /callback as ?error=<code>; map the
-  // code to a fixed message so no attacker-controlled text is ever rendered.
-  const { error: errorCode } = await searchParams;
-  const callbackError = loginErrorMessage(errorCode);
+  // Already signed in? Straight to the role home.
+  if (loading) return <PageSkeleton />;
+  if (user && profile) return <Navigate to={roleHome(profile.role)} replace />;
+
+  // Google sign-in failures come back from /auth/callback as ?error=<code>;
+  // map the code to a fixed message so no attacker-controlled text is rendered.
+  const callbackError = loginErrorMessage(searchParams.get("error") ?? undefined);
 
   return (
     <main className="grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">
+      <PageTitle title="Sign in" />
       {/* ── Brand / product panel ─────────────────────────────────── */}
       <aside className="relative hidden flex-col overflow-hidden bg-[hsl(var(--pes-navy))] p-10 text-white lg:flex">
-        {/* Layered background: glows + dot grid + animated watermark */}
         <div
           aria-hidden="true"
           className="absolute inset-0"
@@ -65,7 +58,6 @@ export default async function LoginPage({
         <div aria-hidden="true" className="absolute inset-0" style={DOTS_DARKPANEL} />
         <LoginWatermark variant="strong" />
 
-        {/* Content */}
         <div className="relative z-10 flex items-center gap-3.5">
           <span className="flex items-center rounded-lg bg-white/10 px-3 py-2 ring-1 ring-white/15">
             <PesLogo variant="dark" priority className="h-9" />
@@ -108,7 +100,6 @@ export default async function LoginPage({
 
       {/* ── Form panel ────────────────────────────────────────────── */}
       <div className="relative flex flex-col items-center justify-center overflow-hidden bg-background p-6 sm:p-10">
-        {/* Texture: dot grid + a whisper of primary tint */}
         <div aria-hidden="true" className="absolute inset-0" style={DOTS_LIGHT} />
         <div
           aria-hidden="true"
@@ -122,7 +113,6 @@ export default async function LoginPage({
           <LoginWatermark variant="faint" />
         </div>
 
-        {/* Mobile brand header */}
         <div className="relative z-10 mb-6 flex flex-col items-center gap-2 lg:hidden">
           <PesLogo priority className="h-11" />
           <p className="font-display text-xs font-semibold uppercase tracking-widest text-muted-foreground">
@@ -130,9 +120,7 @@ export default async function LoginPage({
           </p>
         </div>
 
-        {/* The card anchors the form instead of floating in a void */}
         <div className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border bg-card shadow-pop">
-          {/* PES-orange hairline ties the brand across both panels */}
           <div
             aria-hidden="true"
             className="h-1 w-full bg-gradient-to-r from-[hsl(var(--pes-orange))] via-[hsl(var(--pes-amber-aa))] to-transparent"
@@ -159,18 +147,14 @@ export default async function LoginPage({
                 role="alert"
                 className="flex items-start gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
               >
-                <AlertCircle
-                  className="mt-0.5 size-4 shrink-0"
-                  aria-hidden="true"
-                />
+                <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                 {callbackError}
               </div>
             )}
             <LoginForm />
 
-            {/* Parent of a registered student? Route to the parent sign-in. */}
             <Link
-              href="/parent-login"
+              to="/parent-login"
               className="flex items-center justify-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               <Users className="size-4" aria-hidden="true" />

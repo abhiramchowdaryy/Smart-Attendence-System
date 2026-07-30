@@ -4,7 +4,7 @@ Smart Attendance Management System with Facial Recognition and Performance
 Analytics — PES University. Phase 1 (MVP) + Phase 2 (attendance engine,
 face identity + liveness, GPS policy, results, rich profile).
 
-**Stack:** Next.js 15 (App Router) · React 19 · TypeScript · Tailwind CSS ·
+**Stack:** React 19 + Vite 6 · React Router 6 · TypeScript · Tailwind CSS ·
 Supabase (Postgres + PostGIS + Auth + RLS + Realtime + Edge Functions) ·
 @vladmandic/face-api (browser face detection) · Geolocation + PostGIS
 `ST_DWithin` geofencing (Haversine fallback) · Twilio parent SMS ·
@@ -42,8 +42,8 @@ TanStack Query + Zustand. All free-tier.
 ### 1. Install dependencies
 
 ```bash
-npm install
-npm run download-models   # detector + landmarks + recognition nets → public/models
+pnpm install
+pnpm run download-models   # detector + landmarks + recognition nets → public/models
 ```
 
 ### 2. Create the free Supabase project
@@ -69,10 +69,11 @@ npm run download-models   # detector + landmarks + recognition nets → public/m
 cp .env.example .env.local
 ```
 
-Fill `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from
+Fill `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from
 Project Settings → API Keys. New projects issue `sb_publishable_...` keys;
 older ones issue a legacy `eyJ...` anon JWT. Either works — take whichever
-your project shows.
+your project shows. Vite only exposes variables prefixed with `VITE_` to the
+browser bundle.
 
 ### 4. Create users
 
@@ -97,10 +98,10 @@ update public.profiles set role = 'faculty' where id =
 `SUPABASE_SERVICE_ROLE_KEY` to `.env.local` — Project Settings → API Keys →
 the **secret** key (`sb_secret_...`, or a legacy `service_role` JWT on older
 projects). It bypasses RLS, so keep it out of git and never prefix it with
-`NEXT_PUBLIC_`. Then:
+`VITE_` (it must stay out of the browser bundle). Then:
 
 ```bash
-npm run seed-users   # student@pes.edu / faculty@pes.edu / admin@pes.edu — Pes@12345
+pnpm run seed-users   # student@pes.edu / faculty@pes.edu / admin@pes.edu — Pes@12345
 ```
 
 ### 5. Enable Google sign-in (students)
@@ -115,19 +116,21 @@ provider on once per project:
 2. **Supabase Dashboard** → *Authentication → Providers → Google* → paste the
    Client ID + Secret and enable it.
 3. **Supabase Dashboard** → *Authentication → URL Configuration* → add
-   `http://localhost:3000/callback` (and your deployed
-   `https://…/callback`) to **Redirect URLs**.
+   `http://localhost:3000/auth/callback` (and your deployed
+   `https://…/auth/callback`) to **Redirect URLs**.
 
 Only `@pes.edu` accounts are accepted, and Google sign-in creates/uses
 **student** accounts only — the `/callback` handler rejects any other domain or
 role. Faculty and admin keep signing in with email + password (step 4). To use a
-different Workspace domain, set `NEXT_PUBLIC_COLLEGE_DOMAIN` in `.env.local`.
+different Workspace domain, set `VITE_COLLEGE_DOMAIN` in `.env.local`.
 
 ### 6. Run
 
 ```bash
-npm run dev
+pnpm run dev
 ```
+
+The Vite dev server runs on `http://localhost:3000`.
 
 Keep this terminal visible. If the dev server stops, an already-open tab
 still renders the page but every sign-in fails with a misleading
@@ -147,30 +150,43 @@ Exiting while the session is open records **Left early (partial)**.
 `/parent-login`) and enter the **student's own email and password** — there is
 no separate parent account. That lands on a read-only parent dashboard showing
 the child's attendance rate, marks and recent classes. "Parent mode" is
-remembered by an `httpOnly` cookie and cleared on sign-out.
+remembered by a `localStorage` flag (`pes-parent-view`) and cleared on sign-out.
 
 ## Deploy (free)
 
+This is a static Vite SPA (`pnpm run build` → `dist/`).
+
 1. Push this folder to a GitHub repo.
-2. [vercel.com](https://vercel.com) → Import repo → add the two
-   `NEXT_PUBLIC_SUPABASE_*` env vars → Deploy.
-3. Every PR gets a preview URL; `main` auto-deploys to production.
-4. Install on a phone: open the site → browser menu → *Add to Home Screen*
+2. [vercel.com](https://vercel.com) (or Netlify/Cloudflare Pages) → Import repo.
+   Framework preset **Vite**; build command `pnpm run build`; output `dist`.
+   Add the two `VITE_SUPABASE_*` env vars (and `VITE_COLLEGE_DOMAIN` if you use
+   a non-default domain) → Deploy.
+3. Add a SPA rewrite so client-side routes resolve (all paths → `/index.html`):
+   Vercel does this automatically for the Vite preset; on other hosts add the
+   catch-all rewrite.
+4. Every PR gets a preview URL; `main` auto-deploys to production.
+5. Install on a phone: open the site → browser menu → *Add to Home Screen*
    (PWA manifest included).
 
 ## Project structure
 
 ```
-app/
-  (auth)/login/          sign-in (student Google OAuth + faculty/admin password, server actions)
-  (auth)/callback/       Google OAuth callback — enforces college domain + student-only
+index.html               Vite entry — mounts src/main.tsx
+src/
+  main.tsx               createRoot + Providers + RouterProvider
+  router.tsx             React Router route tree (createBrowserRouter)
+  providers.tsx          Helmet + TanStack Query + AuthProvider
+  guards.tsx             RequireRole / RequireParentView route guards
+  routes/                root-redirect · auth-callback (Google OAuth handler)
+app/                     route components (client), grouped by role:
+  (auth)/login/          sign-in (student Google OAuth + faculty/admin password)
   (auth)/parent-login/   parent sign-in — uses the student's own login (see below)
   student/               dashboard · attendance (75% engine) · results (SGPA/CGPA)
                          mark-attendance (face match + geo) · enroll-face · profile
   parent/                read-only dashboard of a child's attendance & marks
   faculty/               dashboard · attendance report · courses & rosters · marks
   admin/                 dashboard · attendance rollup · GPS settings
-  api/face/verify/       HTTP seam to the DeepFace service (501 until FACE_SERVICE_URL set)
+                         (each folder's actions.ts holds its client data mutations)
 components/
   ui/                    button, card, input, label, badge, skeleton
   attendance/            GeofenceIndicator, MarkAttendanceClient
@@ -185,7 +201,8 @@ lib/                     attendance (75% policy) · results (grades/GPA) · face
                          (phone + template) · auth — each with node --test units
 supabase/                schema.sql · migrations/0001–0009 · seed*.sql
   functions/             edge functions (Deno): notify-shortfall (Twilio parent
-                         SMS) + _shared/cors
+                         SMS) · face-represent + face-verify (DeepFace proxy,
+                         holds FACE_SERVICE_URL/TOKEN) + _shared/
 face-service/            optional FastAPI + DeepFace microservice (server-side
                          verification) — Dockerfile + Render blueprint + tests
 docs/                    attendance-aggregation-engine design + implementation
@@ -198,13 +215,16 @@ framework needed).
 
 ## Security model (defense in depth)
 
-1. **Middleware** — unauthenticated users never reach app routes.
-2. **Section layouts** — `requireRole()` redirects mismatched roles.
-3. **Server actions** — geofence distance **and the face identity match**
-   are re-computed server-side (live descriptor vs enrolled descriptor);
-   the browser UI is presentation only.
-4. **Postgres RLS** — students can only read/write their own rows; only
-   staff touch marks/courses/settings; users cannot self-promote.
+1. **Route guards** — `RequireRole` / `RequireParentView` (React Router)
+   keep unauthenticated users and mismatched roles out of app routes.
+2. **Postgres RLS is the real gate** — every read/write goes through the
+   browser Supabase client under the signed-in user's JWT, so RLS is the
+   authoritative enforcement: students can only read/write their own rows;
+   only staff touch marks/courses/settings; users cannot self-promote. The
+   client-side role checks are UX, not security.
+3. **Face identity match** — the live descriptor is matched against the
+   enrolled descriptor before insert; with server verification enabled the
+   live *image* is re-embedded by the `face-verify` edge function (below).
 5. **Liveness** — a blink (eye-aspect-ratio transition) is required before
    any face is accepted, defeating a static held-up photo.
 6. **First-write-only face enrolment** — `profiles.face_embedding` can be
@@ -218,10 +238,12 @@ framework needed).
 
 Known limitation (documented for the report): in the **default** build the
 *live descriptor* is produced in the browser, so a sophisticated attacker
-who can forge WebRTC frames could bypass it. Setting `FACE_SERVICE_URL`
-closes this: the browser then sends the **image**, and the embedding is
-computed on the server by the DeepFace service (`face-service/`), so the
-client can no longer assert an identity the server never saw pixels for.
+who can forge WebRTC frames could bypass it. Enabling the server-side path
+closes this: the browser then sends the **image** to the `face-verify` edge
+function, which proxies to the DeepFace service (`face-service/`) and computes
+the embedding on the server, so the client can no longer assert an identity the
+server never saw pixels for. The `FACE_SERVICE_URL`/`FACE_SERVICE_TOKEN`
+secrets live only in the edge function — never in the browser bundle.
 Enrolment stores a server-computed embedding
 (`profiles.face_embedding_server`); mark-attendance re-embeds the live frame
 and compares. Students enrolled before the service was turned on keep working
@@ -234,10 +256,18 @@ in headless CI.
 
 1. Run or deploy the Python service in [`face-service/`](face-service/README.md)
    (FastAPI + DeepFace; free-tier Render blueprint included).
-2. Set `FACE_SERVICE_URL` (and `FACE_SERVICE_TOKEN`, matching the service) in
-   the Next.js app's environment.
-3. Apply migration `0006_face_embedding_server.sql`.
-4. Students re-enrol once so a server embedding is captured; from then on the
+2. Deploy the proxy edge functions and set their secrets (the token never
+   touches the browser):
+
+   ```bash
+   supabase functions deploy face-represent face-verify
+   supabase secrets set FACE_SERVICE_URL=https://your-face-service \
+                        FACE_SERVICE_TOKEN=your-shared-secret
+   ```
+3. Flip the public feature flag on so the app uses the server-side path:
+   set `VITE_FACE_VERIFICATION=true` in the app's environment and rebuild.
+4. Apply migration `0006_face_embedding_server.sql`.
+5. Students re-enrol once so a server embedding is captured; from then on the
    authoritative check runs on server-side pixels.
 
 ## Roadmap

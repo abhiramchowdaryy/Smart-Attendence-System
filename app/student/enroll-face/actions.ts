@@ -1,9 +1,13 @@
-"use server";
+"use client";
 
-import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/client";
 import { isValidDescriptor } from "@/lib/face";
-import { faceServiceConfigured, representFace } from "@/lib/face-service";
+
+/** Public feature flag — the server-side DeepFace path is enabled when the
+ *  face-represent / face-verify edge functions are deployed. This is NOT a
+ *  secret: FACE_SERVICE_URL/TOKEN live only in the edge function's secrets. */
+export const FACE_VERIFICATION_ENABLED =
+  import.meta.env.VITE_FACE_VERIFICATION === "true";
 
 export interface EnrollResult {
   ok: boolean;
@@ -14,19 +18,22 @@ export interface EnrollInput {
   /** 128-d browser (face-api) descriptor — the always-present anchor. */
   descriptor: number[];
   /**
-   * Optional still frame (data URL). Required when FACE_SERVICE_URL is set:
-   * the server derives a DeepFace embedding from it so later verification runs
-   * on raw pixels, not a browser-supplied descriptor.
+   * Optional still frame (data URL). Required when face verification is
+   * enabled: the face-represent edge function derives a DeepFace embedding
+   * from it so later verification runs on raw pixels, not a browser-supplied
+   * descriptor.
    */
   image?: string | null;
 }
 
 /**
  * Store the student's enrolled face. The 128-d descriptor is produced in the
- * browser (face-api) and validated here; when the DeepFace service is
- * configured, a still frame is also sent so the server can compute and store
- * its own embedding (profiles.face_embedding_server) — the anchor the
- * authoritative mark-attendance check compares against.
+ * browser (face-api) and validated here; when face verification is enabled, a
+ * still frame is sent to the `face-represent` edge function so the server can
+ * compute and store its own embedding (profiles.face_embedding_server) — the
+ * anchor the authoritative mark-attendance check compares against. The edge
+ * function holds FACE_SERVICE_URL/FACE_SERVICE_TOKEN, so the shared secret
+ * never reaches the browser.
  *
  * Enrolment is FIRST-WRITE-ONLY. Silent re-enrolment would void the whole
  * anti-proxy model: a student could hand over their unlocked session, let a
@@ -36,7 +43,7 @@ export interface EnrollInput {
  * where the trust anchor is set.
  */
 export async function enrollFace(input: EnrollInput): Promise<EnrollResult> {
-  const supabase = await createClient();
+  const supabase = createClient();
 
   const {
     data: { user },
@@ -65,28 +72,28 @@ export async function enrollFace(input: EnrollInput): Promise<EnrollResult> {
   }
 
   // ── Optional server-side embedding ─────────────────────────────────
-  // When the DeepFace service is on, the server embedding is the anchor the
+  // When face verification is enabled, the server embedding is the anchor the
   // authoritative check uses, so enrolment must actually capture it — we do
   // not silently downgrade the trust anchor to descriptor-only if it fails.
   const update: Record<string, unknown> = { face_embedding: input.descriptor };
-  if (faceServiceConfigured()) {
+  if (FACE_VERIFICATION_ENABLED) {
     if (!input.image) {
       return {
         ok: false,
         error: "Camera capture was missing — please retry enrolment.",
       };
     }
-    const represented = await representFace(input.image);
-    if (!represented.ok) {
+    const { data, error } = await supabase.functions.invoke("face-represent", {
+      body: { image: input.image },
+    });
+    if (error || !data || !Array.isArray(data.embedding) || data.embedding.length === 0) {
       return {
         ok: false,
         error:
-          represented.status === 422
-            ? "Couldn't read a single clear face — face the camera in good light and retry."
-            : "Face verification service is unavailable — please try again shortly.",
+          "Couldn't verify your face — face the camera in good light and retry. If this persists, the verification service may be unavailable.",
       };
     }
-    update.face_embedding_server = represented.data.embedding;
+    update.face_embedding_server = data.embedding;
   }
 
   // `.is(null)` makes the first-write rule atomic: two concurrent submits
@@ -108,7 +115,5 @@ export async function enrollFace(input: EnrollInput): Promise<EnrollResult> {
     };
   }
 
-  revalidatePath("/student/enroll-face");
-  revalidatePath("/student/mark-attendance");
   return { ok: true };
 }

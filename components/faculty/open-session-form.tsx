@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle2, LoaderCircle, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,10 +20,27 @@ interface GeofenceOption {
 const INITIAL: SessionFormState = {};
 
 export function OpenSessionForm({ geofences }: { geofences: GeofenceOption[] }) {
-  const [state, action, pending] = useActionState(openSession, INITIAL);
+  const qc = useQueryClient();
+  const [state, setState] = useState<SessionFormState>(INITIAL);
+  const [pending, setPending] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setPending(true);
+    const formData = new FormData(e.currentTarget);
+    const result = await openSession(state, formData);
+    setState(result);
+    setPending(false);
+    if (result.message) {
+      // Mirror the removed revalidatePath("/faculty/dashboard") +
+      // revalidatePath("/student/mark-attendance").
+      qc.invalidateQueries({ queryKey: ["faculty-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["mark-attendance"] });
+    }
+  }
 
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="course">Course</Label>
         <Input

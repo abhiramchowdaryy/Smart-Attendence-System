@@ -1,4 +1,6 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
   Droplets,
@@ -9,8 +11,11 @@ import {
   ShieldCheck,
   Users,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { PageSkeleton } from "@/components/page-skeleton";
+import { SectionError } from "@/components/section-error";
+import { PageTitle } from "@/src/page-title";
 import { GsapReveal } from "@/components/gsap-reveal";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -21,8 +26,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-
-export const metadata: Metadata = { title: "My Profile" };
 
 interface StudentDetails {
   pesu_id: string | null;
@@ -98,19 +101,35 @@ function PctRow({ label, pct }: { label: string; pct: number | null }) {
   );
 }
 
-export default async function StudentProfile() {
-  const profile = await requireRole(["student"]);
-  const supabase = await createClient();
+export default function StudentProfile() {
+  const { profile } = useAuth();
 
-  const { data } = await supabase
-    .from("student_details")
-    .select(
-      "pesu_id, branch, section, dob, blood_group, sslc_pct, puc_pct, father_name, father_phone, mother_name, mother_phone, address, city, state, pincode, aadhaar_last4"
-    )
-    .eq("student_id", profile.id)
-    .maybeSingle<StudentDetails>();
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["student-profile", profile?.id],
+    enabled: !!profile,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("student_details")
+        .select(
+          "pesu_id, branch, section, dob, blood_group, sslc_pct, puc_pct, father_name, father_phone, mother_name, mother_phone, address, city, state, pincode, aadhaar_last4"
+        )
+        .eq("student_id", profile!.id)
+        .maybeSingle<StudentDetails>();
+      return { details: data };
+    },
+  });
 
-  const d = data;
+  if (!profile || isLoading) return <PageSkeleton />;
+  if (isError)
+    return (
+      <SectionError
+        error={new Error("Could not load your profile.")}
+        reset={() => refetch()}
+      />
+    );
+
+  const d = data?.details ?? null;
   const dob = d?.dob
     ? new Date(d.dob).toLocaleDateString([], {
         day: "numeric",
@@ -121,6 +140,7 @@ export default async function StudentProfile() {
 
   return (
     <GsapReveal className="space-y-6">
+      <PageTitle title="My Profile" />
       {/* Identity header */}
       <Card className="overflow-hidden">
         <div

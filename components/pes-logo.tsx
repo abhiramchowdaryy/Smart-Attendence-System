@@ -1,43 +1,36 @@
-import Image from "next/image";
 import { cn } from "@/lib/utils";
 
-// Intrinsic size of the source artwork (public/pes-university-logo*.png).
-const LOGO_W = 400;
-const LOGO_H = 183;
+// Served from /public at the site root (Vite copies public/ verbatim).
+const LOGO_LIGHT = "/pes-university-logo.png";
+const LOGO_DARK = "/pes-university-logo-dark.png";
 
 /**
  * Official PES University logo lockup (compass emblem + "PES UNIVERSITY").
  *
  * The artwork is navy ink on transparency, which disappears on the app's dark
  * surfaces, so we ship two files and swap them by theme with pure CSS (the app
- * toggles the `dark` class on <html>, so no JS or hydration is involved). Both
- * are tiny PNGs; the hidden one costs a few KB and avoids any theme-flash.
+ * toggles the `dark` class on <html>). Size it with a height utility in
+ * `className` (e.g. `h-9`); width scales to preserve the aspect ratio.
  *
- * Size it by setting a height utility in `className` (e.g. `h-9`); width scales
- * to preserve the aspect ratio.
+ * `priority` is accepted for source-compatibility with call sites but is a
+ * no-op now (Vite has no <Image> priority hint).
  */
 export function PesLogo({
   className,
-  priority = false,
+  priority: _priority = false,
   variant = "auto",
 }: {
-  /** Height utility drives the size, e.g. "h-8 sm:h-9". */
   className?: string;
-  /** Set on above-the-fold marks (login hero) to prioritise the LCP image. */
   priority?: boolean;
-  /** Force a single variant when the surface is always light or always dark. */
   variant?: "auto" | "light" | "dark";
 }) {
   const alt = "PES University";
 
   if (variant !== "auto") {
     return (
-      <Image
-        src={variant === "dark" ? "/pes-university-logo-dark.png" : "/pes-university-logo.png"}
+      <img
+        src={variant === "dark" ? LOGO_DARK : LOGO_LIGHT}
         alt={alt}
-        width={LOGO_W}
-        height={LOGO_H}
-        priority={priority}
         className={cn("w-auto", className)}
       />
     );
@@ -45,21 +38,11 @@ export function PesLogo({
 
   return (
     <span className={cn("inline-flex", className)}>
-      <Image
-        src="/pes-university-logo.png"
-        alt={alt}
-        width={LOGO_W}
-        height={LOGO_H}
-        priority={priority}
-        className="block h-full w-auto dark:hidden"
-      />
-      <Image
-        src="/pes-university-logo-dark.png"
+      <img src={LOGO_LIGHT} alt={alt} className="block h-full w-auto dark:hidden" />
+      <img
+        src={LOGO_DARK}
         alt=""
         aria-hidden="true"
-        width={LOGO_W}
-        height={LOGO_H}
-        priority={priority}
         className="hidden h-full w-auto dark:block"
       />
     </span>

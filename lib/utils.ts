@@ -8,8 +8,8 @@ export function cn(...inputs: ClassValue[]) {
 /** True when both Supabase public env vars are present (app can run in "unconfigured" demo state without them). */
 export function supabaseConfigured() {
   return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    import.meta.env.VITE_SUPABASE_URL &&
+      import.meta.env.VITE_SUPABASE_ANON_KEY
   );
 }
 
@@ -28,10 +28,10 @@ export type AttendanceStatus = "present" | "late" | "absent" | "partial";
  * College Google Workspace domain. Students sign in with their institutional
  * Google account (`someone@pes.edu`); the OAuth callback rejects any address
  * outside this domain. Also passed to Google as the `hd` hint so the account
- * chooser prefers college accounts. Override with NEXT_PUBLIC_COLLEGE_DOMAIN.
+ * chooser prefers college accounts. Override with VITE_COLLEGE_DOMAIN.
  */
 export const COLLEGE_EMAIL_DOMAIN =
-  process.env.NEXT_PUBLIC_COLLEGE_DOMAIN?.trim().toLowerCase() || "pes.edu";
+  import.meta.env.VITE_COLLEGE_DOMAIN?.trim().toLowerCase() || "pes.edu";
 
 /** True when `email` belongs to the college Google Workspace domain. */
 export function isCollegeEmail(email: string | null | undefined): boolean {

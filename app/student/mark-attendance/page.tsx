@@ -1,36 +1,85 @@
-import type { Metadata } from "next";
-import Link from "next/link";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { CalendarX2, ScanFace } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { isValidDescriptor, type FaceDescriptor } from "@/lib/face";
-import { faceServiceConfigured } from "@/lib/face-service";
+import { FACE_VERIFICATION_ENABLED } from "@/app/student/enroll-face/actions";
 import { fetchGpsSettings } from "@/lib/gps-settings";
 import { MarkAttendanceClient } from "@/components/attendance/mark-attendance-client";
+import { PageSkeleton } from "@/components/page-skeleton";
+import { SectionError } from "@/components/section-error";
+import { PageTitle } from "@/src/page-title";
 import { GsapReveal } from "@/components/gsap-reveal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { firstRow } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Mark Attendance" };
+export default function MarkAttendancePage() {
+  const { profile } = useAuth();
 
-export default async function MarkAttendancePage() {
-  const profile = await requireRole(["student"]);
-  const supabase = await createClient();
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["mark-attendance", profile?.id],
+    enabled: !!profile,
+    queryFn: async () => {
+      const supabase = createClient();
 
-  // The most recent open session (faculty opens/closes sessions).
-  const { data: session } = await supabase
-    .from("sessions")
-    .select("id, course, opened_at, geofences(room_name, lat, lng, radius_m)")
-    .is("closed_at", null)
-    .order("opened_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+      // The most recent open session (faculty opens/closes sessions).
+      const { data: session } = await supabase
+        .from("sessions")
+        .select("id, course, opened_at, geofences(room_name, lat, lng, radius_m)")
+        .is("closed_at", null)
+        .order("opened_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-  if (!session) {
+      if (!session) return { session: null } as const;
+
+      const fence = firstRow(session.geofences);
+
+      // Is the student's face enrolled? Identity verification needs it.
+      const { data: me } = await supabase
+        .from("profiles")
+        .select("face_embedding")
+        .eq("id", profile!.id)
+        .maybeSingle();
+      const enrolledDescriptor: FaceDescriptor | null = isValidDescriptor(
+        me?.face_embedding
+      )
+        ? me!.face_embedding
+        : null;
+
+      // Admin GPS policy: high-accuracy request + the geofence grace.
+      const gps = await fetchGpsSettings(supabase);
+
+      // Does this student already have an entry (without exit) for it?
+      const { data: existing } = await supabase
+        .from("attendance")
+        .select("id, exit_time")
+        .eq("session_id", session.id)
+        .eq("student_id", profile!.id)
+        .maybeSingle();
+
+      return { session, fence, enrolledDescriptor, gps, existing } as const;
+    },
+  });
+
+  if (!profile || isLoading) return <PageSkeleton />;
+  if (isError || !data)
+    return (
+      <SectionError
+        error={new Error("Could not load the session.")}
+        reset={() => refetch()}
+      />
+    );
+
+  if (!data.session) {
     return (
       <div className="mx-auto max-w-md">
+        <PageTitle title="Mark Attendance" />
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
             <CalendarX2 className="size-8 text-muted-foreground" aria-hidden="true" />
@@ -47,36 +96,12 @@ export default async function MarkAttendancePage() {
     );
   }
 
-  const fence = firstRow(session.geofences);
-
-  // Is the student's face enrolled? Identity verification needs it.
-  const { data: me } = await supabase
-    .from("profiles")
-    .select("face_embedding")
-    .eq("id", profile.id)
-    .maybeSingle();
-  const enrolledDescriptor: FaceDescriptor | null = isValidDescriptor(
-    me?.face_embedding
-  )
-    ? me!.face_embedding
-    : null;
-
-  // Admin GPS policy: high-accuracy request + the geofence grace, so the
-  // client chip/button mirror the server's allowance.
-  const gps = await fetchGpsSettings(supabase);
-
-  // Does this student already have an entry (without exit) for it?
-  const { data: existing } = await supabase
-    .from("attendance")
-    .select("id, exit_time")
-    .eq("session_id", session.id)
-    .eq("student_id", profile.id)
-    .maybeSingle();
-
+  const { session, fence, enrolledDescriptor, gps, existing } = data;
   const alreadyDone = existing && existing.exit_time !== null;
 
   return (
     <GsapReveal className="mx-auto max-w-md space-y-4">
+      <PageTitle title="Mark Attendance" />
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-bold">Mark Attendance</h1>
         <Badge variant="secondary" className="font-mono">
@@ -117,7 +142,7 @@ export default async function MarkAttendancePage() {
               Attendance verifies your identity against an enrolled face. Set
               it up once — it takes a few seconds.
             </p>
-            <Link href="/student/enroll-face">
+            <Link to="/student/enroll-face">
               <Button variant="accent">
                 <ScanFace className="size-4" aria-hidden="true" />
                 Enrol my face
@@ -138,7 +163,7 @@ export default async function MarkAttendancePage() {
           enrolledDescriptor={enrolledDescriptor}
           highAccuracy={gps.highAccuracy}
           accuracyGraceM={gps.accuracyGraceM}
-          serverVerification={faceServiceConfigured()}
+          serverVerification={FACE_VERIFICATION_ENABLED}
         />
       )}
     </GsapReveal>

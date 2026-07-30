@@ -1,5 +1,7 @@
-import type { Metadata } from "next";
-import Link from "next/link";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import {
   BookOpenCheck,
   CalendarCheck2,
@@ -8,8 +10,11 @@ import {
   ScanFace,
   Timer,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { PageSkeleton } from "@/components/page-skeleton";
+import { SectionError } from "@/components/section-error";
+import { PageTitle } from "@/src/page-title";
 import { KpiCard } from "@/components/kpi-card";
 import { StatusPill } from "@/components/status-pill";
 import { GsapReveal } from "@/components/gsap-reveal";
@@ -26,8 +31,6 @@ import {
 } from "@/components/ui/card";
 import { startOfToday, type AttendanceStatus } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Student Dashboard" };
-
 interface AttendanceRow {
   id: string;
   entry_time: string;
@@ -37,42 +40,55 @@ interface AttendanceRow {
   sessions: { course: string } | null;
 }
 
-export default async function StudentDashboard() {
-  const profile = await requireRole(["student"]);
-  const supabase = await createClient();
+export default function StudentDashboard() {
+  const { profile } = useAuth();
 
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["student-dashboard", profile?.id],
+    enabled: !!profile,
+    queryFn: async () => {
+      const supabase = createClient();
+      const since = new Date(
+        Date.now() - 30 * 24 * 60 * 60 * 1000
+      ).toISOString();
 
-  // Independent reads — issued in parallel so the page's TTFB is one
-  // Supabase round-trip, not three stacked end to end. (Attendance rows,
-  // the sessions-held count, and this student's marks share no inputs.)
-  const [{ data: rows }, { count: sessionsHeld }, { data: myMarks }] =
-    await Promise.all([
-      // Last 30 days of this student's attendance (RLS scopes to own rows).
-      supabase
-        .from("attendance")
-        .select(
-          "id, entry_time, exit_time, duration_min, status, sessions(course)"
-        )
-        .eq("student_id", profile.id)
-        .gte("entry_time", since)
-        .order("entry_time", { ascending: false })
-        .returns<AttendanceRow[]>(),
-      // Total sessions held in the same window (for attendance %).
-      supabase
-        .from("sessions")
-        .select("id", { count: "exact", head: true })
-        .gte("opened_at", since),
-      // The student's own marks (RLS scopes to own rows).
-      supabase
-        .from("marks")
-        .select("id, course, assessment, score, max_score")
-        .eq("student_id", profile.id)
-        .order("updated_at", { ascending: false }),
-    ]);
+      // Independent reads issued in parallel (was a server-side Promise.all).
+      const [{ data: rows }, { count: sessionsHeld }, { data: myMarks }] =
+        await Promise.all([
+          supabase
+            .from("attendance")
+            .select(
+              "id, entry_time, exit_time, duration_min, status, sessions(course)"
+            )
+            .eq("student_id", profile!.id)
+            .gte("entry_time", since)
+            .order("entry_time", { ascending: false })
+            .returns<AttendanceRow[]>(),
+          supabase
+            .from("sessions")
+            .select("id", { count: "exact", head: true })
+            .gte("opened_at", since),
+          supabase
+            .from("marks")
+            .select("id, course, assessment, score, max_score")
+            .eq("student_id", profile!.id)
+            .order("updated_at", { ascending: false }),
+        ]);
+      return { rows: rows ?? [], sessionsHeld: sessionsHeld ?? 0, myMarks: myMarks ?? [] };
+    },
+  });
 
-  const records = rows ?? [];
-  const held = sessionsHeld ?? 0;
+  if (!profile || isLoading) return <PageSkeleton />;
+  if (isError || !data)
+    return (
+      <SectionError
+        error={new Error("Could not load your dashboard.")}
+        reset={() => refetch()}
+      />
+    );
+
+  const records = data.rows;
+  const held = data.sessionsHeld;
   const attended = records.filter((r) => r.status !== "absent").length;
   const pct = held > 0 ? Math.round((attended / held) * 100) : null;
 
@@ -87,7 +103,7 @@ export default async function StudentDashboard() {
   const todayStart = startOfToday();
   const todayRecord = records.find((r) => new Date(r.entry_time) >= todayStart);
 
-  const marks = myMarks ?? [];
+  const marks = data.myMarks;
   const avgMarksPct =
     marks.length > 0
       ? Math.round(
@@ -98,8 +114,6 @@ export default async function StudentDashboard() {
         )
       : null;
 
-  // Chart data: last 10 attended sessions with a recorded duration,
-  // oldest → newest so time reads left to right.
   const chartData: DurationDatum[] = records
     .filter((r) => r.duration_min !== null)
     .slice(0, 10)
@@ -115,7 +129,7 @@ export default async function StudentDashboard() {
 
   return (
     <GsapReveal className="space-y-6">
-      {/* Greeting + CTA */}
+      <PageTitle title="Student Dashboard" />
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">
@@ -128,7 +142,7 @@ export default async function StudentDashboard() {
             Last 30 days at a glance
           </p>
         </div>
-        <Link href="/student/mark-attendance">
+        <Link to="/student/mark-attendance">
           <Button variant="accent">
             <ScanFace className="size-4" aria-hidden="true" />
             Mark Attendance
@@ -136,7 +150,6 @@ export default async function StudentDashboard() {
         </Link>
       </div>
 
-      {/* Attendance ring + KPI grid */}
       <section className="grid gap-4 lg:grid-cols-5">
         <Card className="transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-pop lg:col-span-2">
           <CardHeader className="pb-0">
@@ -189,11 +202,8 @@ export default async function StudentDashboard() {
         </div>
       </section>
 
-      {/* AI insight — attendance ↔ performance analysis + prediction.
-          Reuses the attendance % and average marks % already computed above. */}
       <PerformanceInsight attendancePct={pct} marksPct={avgMarksPct} />
 
-      {/* Duration trend — only when there is enough real data to plot */}
       {chartData.length >= 2 && (
         <Card>
           <CardHeader>
@@ -208,7 +218,6 @@ export default async function StudentDashboard() {
         </Card>
       )}
 
-      {/* My marks — the deck's student "View Marks" use case */}
       <Card>
         <CardHeader className="flex-row items-start justify-between space-y-0">
           <div className="space-y-1">
@@ -246,7 +255,7 @@ export default async function StudentDashboard() {
                 </thead>
                 <tbody>
                   {marks.map((m) => {
-                    const pct = Math.round(
+                    const mp = Math.round(
                       (Number(m.score) / Number(m.max_score)) * 100
                     );
                     return (
@@ -256,7 +265,7 @@ export default async function StudentDashboard() {
                         <td className="py-2.5 pr-4 font-mono text-xs">
                           {Number(m.score)}/{Number(m.max_score)}
                         </td>
-                        <td className="py-2.5 font-mono text-xs">{pct}%</td>
+                        <td className="py-2.5 font-mono text-xs">{mp}%</td>
                       </tr>
                     );
                   })}
@@ -267,7 +276,6 @@ export default async function StudentDashboard() {
         </CardContent>
       </Card>
 
-      {/* Records table (also serves as the chart's accessible table view) */}
       <Card>
         <CardHeader>
           <CardTitle>Recent attendance</CardTitle>

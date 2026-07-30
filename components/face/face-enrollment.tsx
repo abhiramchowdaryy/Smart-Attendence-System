@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, LoaderCircle, ScanFace, ShieldCheck, XCircle } from "lucide-react";
 import { BiometricScanner, type ScanStatus } from "@/components/face/biometric-scanner";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ export function FaceEnrollment({
    *  server can compute and store a DeepFace embedding. */
   serverVerification?: boolean;
 }) {
-  const router = useRouter();
+  const queryClient = useQueryClient();
   const [status, setStatus] = useState<ScanStatus | null>(null);
   const [result, setResult] = useState<Result>({ kind: "idle" });
   const [pending, startTransition] = useTransition();
@@ -45,7 +45,10 @@ export function FaceEnrollment({
       });
       if (res.ok) {
         setResult({ kind: "success" });
-        setTimeout(() => router.refresh(), 1600);
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ["enroll-face"] });
+          queryClient.invalidateQueries({ queryKey: ["mark-attendance"] });
+        }, 1600);
       } else {
         setResult({ kind: "error", message: res.error ?? "Enrolment failed." });
       }

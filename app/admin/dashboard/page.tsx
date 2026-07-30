@@ -1,12 +1,17 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
   GraduationCap,
   MapPin,
   ShieldCheck,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { PageSkeleton } from "@/components/page-skeleton";
+import { SectionError } from "@/components/section-error";
+import { PageTitle } from "@/src/page-title";
 import { KpiCard } from "@/components/kpi-card";
 import { GsapReveal } from "@/components/gsap-reveal";
 import { UsersTable, type UserRow } from "@/components/admin/users-table";
@@ -27,50 +32,77 @@ import {
 } from "@/components/ui/card";
 import { startOfToday, type AttendanceStatus } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Admin Dashboard" };
+export default function AdminDashboard() {
+  const { profile } = useAuth();
 
-export default async function AdminDashboard() {
-  const profile = await requireRole(["admin"]);
-  const supabase = await createClient();
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["admin-dashboard", profile?.id],
+    enabled: !!profile,
+    queryFn: async () => {
+      const supabase = createClient();
 
-  const todayStart = startOfToday();
-  const weekAgo = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
+      const todayStart = startOfToday();
+      const weekAgo = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
 
-  // These four reads are independent, so they are issued together. Awaiting
-  // them in sequence would serialise four Supabase round-trips into the
-  // page's TTFB for no reason — the slowest one should set the floor, not
-  // the sum of all of them.
-  const [
-    { data: users },
-    { data: geofences },
-    { count: sessionsToday },
-    { data: weekRows },
-  ] = await Promise.all([
-    // All users (RLS: admin full access). face_enrolled is a generated
-    // column (migration 0005) so no descriptor payload crosses the wire.
-    supabase
-      .from("profiles")
-      .select("id, full_name, roll_no, role, created_at, face_enrolled")
-      .order("role")
-      .order("full_name")
-      .returns<UserRow[]>(),
-    supabase
-      .from("geofences")
-      .select("id, room_name, lat, lng, radius_m")
-      .order("room_name")
-      .returns<GeofenceRow[]>(),
-    supabase
-      .from("sessions")
-      .select("id", { count: "exact", head: true })
-      .gte("opened_at", todayStart.toISOString()),
-    supabase
-      .from("attendance")
-      .select("entry_time, status")
-      .gte("entry_time", weekAgo.toISOString())
-      .returns<{ entry_time: string; status: AttendanceStatus }[]>(),
-  ]);
+      // These four reads are independent, so they are issued together. Awaiting
+      // them in sequence would serialise four Supabase round-trips into the
+      // page's TTFB for no reason — the slowest one should set the floor, not
+      // the sum of all of them.
+      const [
+        { data: users },
+        { data: geofences },
+        { count: sessionsToday },
+        { data: weekRows },
+      ] = await Promise.all([
+        // All users (RLS: admin full access). face_enrolled is a generated
+        // column (migration 0005) so no descriptor payload crosses the wire.
+        supabase
+          .from("profiles")
+          .select("id, full_name, roll_no, role, created_at, face_enrolled")
+          .order("role")
+          .order("full_name")
+          .returns<UserRow[]>(),
+        supabase
+          .from("geofences")
+          .select("id, room_name, lat, lng, radius_m")
+          .order("room_name")
+          .returns<GeofenceRow[]>(),
+        supabase
+          .from("sessions")
+          .select("id", { count: "exact", head: true })
+          .gte("opened_at", todayStart.toISOString()),
+        supabase
+          .from("attendance")
+          .select("entry_time, status")
+          .gte("entry_time", weekAgo.toISOString())
+          .returns<{ entry_time: string; status: AttendanceStatus }[]>(),
+      ]);
 
-  const allUsers = users ?? [];
+      return {
+        users: users ?? [],
+        geofences: geofences ?? [],
+        sessionsToday: sessionsToday ?? 0,
+        weekRows: weekRows ?? [],
+        weekAgo,
+      };
+    },
+  });
+
+  if (!profile || isLoading) return <PageSkeleton />;
+  if (isError || !data)
+    return (
+      <SectionError
+        error={new Error("Could not load the admin dashboard.")}
+        reset={() => refetch()}
+      />
+    );
+
+  const allUsers = data.users;
+  const geofences = data.geofences;
+  const sessionsToday = data.sessionsToday;
+  const weekRows = data.weekRows;
+  const weekAgo = data.weekAgo;
+
   const studentCount = allUsers.filter((u) => u.role === "student").length;
   const staffCount = allUsers.filter((u) => u.role !== "student").length;
 
@@ -83,7 +115,7 @@ export default async function AdminDashboard() {
       partial: 0,
     };
   });
-  for (const row of weekRows ?? []) {
+  for (const row of weekRows) {
     const idx = Math.floor(
       (new Date(row.entry_time).getTime() - weekAgo.getTime()) /
         (24 * 60 * 60 * 1000)
@@ -96,6 +128,7 @@ export default async function AdminDashboard() {
 
   return (
     <GsapReveal className="space-y-6">
+      <PageTitle title="Admin Dashboard" />
       <div>
         <h1 className="text-2xl font-bold">
           Hello, {profile.fullName.split(" ")[0]}

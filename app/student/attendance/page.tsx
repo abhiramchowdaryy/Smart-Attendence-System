@@ -1,13 +1,15 @@
-import type { Metadata } from "next";
-import Link from "next/link";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   BookOpenCheck,
   CheckCircle2,
   AlertTriangle,
   Layers,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth";
 import {
   fetchStudentAttendance,
   fetchStudentSemesters,
@@ -18,6 +20,9 @@ import {
   type AttendanceSummaryRow,
 } from "@/lib/attendance";
 import { KpiCard } from "@/components/kpi-card";
+import { PageSkeleton } from "@/components/page-skeleton";
+import { SectionError } from "@/components/section-error";
+import { PageTitle } from "@/src/page-title";
 import { GsapReveal } from "@/components/gsap-reveal";
 import { AttendanceRing } from "@/components/charts/attendance-ring";
 import { EligibilityBadge } from "@/components/eligibility-badge";
@@ -32,31 +37,42 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "My Attendance" };
-
 /** Bar color mirrors the eligibility state so it is never color-only. */
 function barTone(officialPct: number | null): string {
   if (officialPct === null) return "bg-muted-foreground/40";
   return isEligible(officialPct) ? "bg-status-present" : "bg-status-absent";
 }
 
-export default async function StudentAttendance({
-  searchParams,
-}: {
-  searchParams: Promise<{ sem?: string }>;
-}) {
-  const profile = await requireRole(["student"]);
-  const supabase = await createClient();
+export default function StudentAttendance() {
+  const { profile } = useAuth();
+  const [searchParams] = useSearchParams();
+  const sem = searchParams.get("sem") ?? undefined;
 
-  const semesters = await fetchStudentSemesters(supabase, profile.id);
-  const { sem } = await searchParams;
-  const selected =
-    sem && semesters.includes(sem) ? sem : semesters[0] ?? null;
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["student-attendance", profile?.id, sem ?? null],
+    enabled: !!profile,
+    queryFn: async () => {
+      const supabase = createClient();
+      const semesters = await fetchStudentSemesters(supabase, profile!.id);
+      const selected =
+        sem && semesters.includes(sem) ? sem : semesters[0] ?? null;
+      const rows: AttendanceSummaryRow[] = selected
+        ? await fetchStudentAttendance(supabase, profile!.id, selected)
+        : [];
+      return { semesters, selected, rows };
+    },
+  });
 
-  const rows: AttendanceSummaryRow[] = selected
-    ? await fetchStudentAttendance(supabase, profile.id, selected)
-    : [];
+  if (!profile || isLoading) return <PageSkeleton />;
+  if (isError || !data)
+    return (
+      <SectionError
+        error={new Error("Could not load your attendance.")}
+        reset={() => refetch()}
+      />
+    );
 
+  const { semesters, selected, rows } = data;
   const summary = summarizeStudent(rows);
   const withData = rows.filter((r) => r.conducted > 0);
   const totalConducted = withData.reduce((s, r) => s + r.conducted, 0);
@@ -91,6 +107,7 @@ export default async function StudentAttendance({
 
   return (
     <GsapReveal className="space-y-6">
+      <PageTitle title="My Attendance" />
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -103,7 +120,7 @@ export default async function StudentAttendance({
           </p>
         </div>
 
-        {/* Semester selector — server-side links, no client JS. */}
+        {/* Semester selector. */}
         {semesters.length > 0 && (
           <div
             className="inline-flex rounded-lg border bg-muted/40 p-1"
@@ -113,7 +130,7 @@ export default async function StudentAttendance({
             {semesters.map((s) => (
               <Link
                 key={s}
-                href={`/student/attendance?sem=${encodeURIComponent(s)}`}
+                to={`/student/attendance?sem=${encodeURIComponent(s)}`}
                 role="tab"
                 aria-selected={s === selected}
                 className={cn(

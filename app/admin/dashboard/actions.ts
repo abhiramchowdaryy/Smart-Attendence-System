@@ -1,7 +1,6 @@
-"use server";
+"use client";
 
-import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/client";
 import type { Role } from "@/lib/utils";
 
 export interface AdminActionState {
@@ -11,7 +10,7 @@ export interface AdminActionState {
 
 /** Admin gate shared by all actions (RLS enforces this too). */
 async function requireAdmin() {
-  const supabase = await createClient();
+  const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -50,7 +49,6 @@ export async function setUserRole(
     .eq("id", userId);
   if (updateError) return { error: updateError.message };
 
-  revalidatePath("/admin/dashboard");
   return { message: "Role updated." };
 }
 
@@ -77,7 +75,6 @@ export async function resetFaceEnrollment(
     .eq("id", userId);
   if (updateError) return { error: updateError.message };
 
-  revalidatePath("/admin/dashboard");
   return { message: "Face enrolment reset — the student can now re-enrol." };
 }
 
@@ -110,8 +107,6 @@ export async function createGeofence(
   });
   if (insertError) return { error: insertError.message };
 
-  revalidatePath("/admin/dashboard");
-  revalidatePath("/faculty/dashboard");
   return { message: `Geofence "${roomName}" created.` };
 }
 
@@ -135,7 +130,5 @@ export async function deleteGeofence(id: string): Promise<AdminActionState> {
     return { error: deleteError.message };
   }
 
-  revalidatePath("/admin/dashboard");
-  revalidatePath("/faculty/dashboard");
   return { message: "Geofence deleted." };
 }

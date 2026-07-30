@@ -1,7 +1,6 @@
-"use server";
+"use client";
 
-import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/client";
 import { clampSetting } from "@/lib/gps-settings";
 
 export interface SettingsResult {
@@ -18,7 +17,7 @@ export async function updateGpsSettings(
   _prev: SettingsResult,
   formData: FormData
 ): Promise<SettingsResult> {
-  const supabase = await createClient();
+  const supabase = createClient();
 
   const {
     data: { user },
@@ -48,7 +47,5 @@ export async function updateGpsSettings(
 
   if (error) return { error: error.message };
 
-  revalidatePath("/admin/settings");
-  revalidatePath("/student/mark-attendance");
   return { ok: true };
 }

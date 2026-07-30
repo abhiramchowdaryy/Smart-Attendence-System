@@ -1,5 +1,7 @@
-import type { Metadata } from "next";
-import Link from "next/link";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   GraduationCap,
   BookOpenCheck,
@@ -7,8 +9,8 @@ import {
   XCircle,
   Sigma,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth";
 import {
   computeCourseResults,
   computeSemesters,
@@ -18,6 +20,9 @@ import {
   type CourseMeta,
 } from "@/lib/results";
 import { KpiCard } from "@/components/kpi-card";
+import { PageSkeleton } from "@/components/page-skeleton";
+import { SectionError } from "@/components/section-error";
+import { PageTitle } from "@/src/page-title";
 import { GsapReveal } from "@/components/gsap-reveal";
 import { GradeDial } from "@/components/charts/grade-dial";
 import { GradeBadge } from "@/components/grade-badge";
@@ -32,34 +37,45 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "My Results" };
+export default function StudentResults() {
+  const { profile } = useAuth();
+  const [searchParams] = useSearchParams();
+  const sem = searchParams.get("sem") ?? undefined;
 
-export default async function StudentResults({
-  searchParams,
-}: {
-  searchParams: Promise<{ sem?: string }>;
-}) {
-  const profile = await requireRole(["student"]);
-  const supabase = await createClient();
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["student-results", profile?.id],
+    enabled: !!profile,
+    queryFn: async () => {
+      const supabase = createClient();
+      // Own marks (RLS scopes to own rows) + course metadata for credits/sem.
+      const [{ data: markRows }, { data: courseRows }] = await Promise.all([
+        supabase
+          .from("marks")
+          .select("course, assessment, score, max_score")
+          .eq("student_id", profile!.id)
+          .returns<MarkRow[]>(),
+        supabase
+          .from("courses")
+          .select("code, name, credits, semester")
+          .returns<CourseMeta[]>(),
+      ]);
+      return { markRows: markRows ?? [], courseRows: courseRows ?? [] };
+    },
+  });
 
-  // Own marks (RLS scopes to own rows) + course metadata for credits/sem.
-  const [{ data: markRows }, { data: courseRows }] = await Promise.all([
-    supabase
-      .from("marks")
-      .select("course, assessment, score, max_score")
-      .eq("student_id", profile.id)
-      .returns<MarkRow[]>(),
-    supabase
-      .from("courses")
-      .select("code, name, credits, semester")
-      .returns<CourseMeta[]>(),
-  ]);
+  if (!profile || isLoading) return <PageSkeleton />;
+  if (isError || !data)
+    return (
+      <SectionError
+        error={new Error("Could not load your results.")}
+        reset={() => refetch()}
+      />
+    );
 
-  const results = computeCourseResults(markRows ?? [], courseRows ?? []);
+  const results = computeCourseResults(data.markRows, data.courseRows);
   const semesters = computeSemesters(results);
   const cgpa = computeCgpa(results);
 
-  const { sem } = await searchParams;
   const semNames = semesters.map((s) => s.semester);
   // Default to the latest semester (list is sorted ascending).
   const selectedName =
@@ -98,6 +114,7 @@ export default async function StudentResults({
 
   return (
     <GsapReveal className="space-y-6">
+      <PageTitle title="My Results" />
       {/* Header + semester tabs */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -119,7 +136,7 @@ export default async function StudentResults({
             {semNames.map((s) => (
               <Link
                 key={s}
-                href={`/student/results?sem=${encodeURIComponent(s)}`}
+                to={`/student/results?sem=${encodeURIComponent(s)}`}
                 role="tab"
                 aria-selected={s === selectedName}
                 className={cn(

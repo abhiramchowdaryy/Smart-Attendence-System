@@ -1,17 +1,15 @@
-import type { Metadata } from "next";
-import Link from "next/link";
+"use client";
+
+import { Link, Navigate } from "react-router-dom";
 import { ArrowLeft, BarChart3, CalendarCheck2, ShieldCheck } from "lucide-react";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { redirectToRoleHome } from "@/lib/auth";
+import { useAuth, roleHome } from "@/lib/auth";
 import { supabaseConfigured } from "@/lib/utils";
+import { PageSkeleton } from "@/components/page-skeleton";
+import { PageTitle } from "@/src/page-title";
 import { ParentLoginForm } from "./parent-login-form";
 import { LoginWatermark } from "@/components/login-watermark";
 import { LoginPreviewCards } from "@/components/login-preview-cards";
 import { PesLogo } from "@/components/pes-logo";
-
-export const metadata: Metadata = { title: "Parent sign in" };
 
 const FEATURES = [
   { Icon: CalendarCheck2, text: "See your child's attendance, class by class" },
@@ -31,22 +29,20 @@ const DOTS_DARKPANEL = {
   backgroundSize: "22px 22px",
 } as const;
 
-export default async function ParentLoginPage() {
-  // Already signed in? A parent (parent_view cookie) goes to the parent
+export default function ParentLoginPage() {
+  const { loading, user, profile, parentView } = useAuth();
+
+  // Already signed in? A parent (parentView flag) goes to the parent
   // dashboard; anyone else goes to their normal role home.
-  if (supabaseConfigured()) {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      const store = await cookies();
-      if (store.get("parent_view")?.value === "1") redirect("/parent/dashboard");
-      await redirectToRoleHome(supabase, user.id);
-    }
+  if (loading) return <PageSkeleton />;
+  if (user && profile) {
+    if (parentView) return <Navigate to="/parent/dashboard" replace />;
+    return <Navigate to={roleHome(profile.role)} replace />;
   }
 
   return (
+    <>
+    <PageTitle title="Parent sign in" />
     <main className="grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">
       {/* ── Brand / product panel ─────────────────────────────────── */}
       <aside className="relative hidden flex-col overflow-hidden bg-[hsl(var(--pes-navy))] p-10 text-white lg:flex">
@@ -154,7 +150,7 @@ export default async function ParentLoginPage() {
 
             {/* Route back to the student / staff sign-in */}
             <Link
-              href="/login"
+              to="/login"
               className="flex items-center justify-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               <ArrowLeft className="size-4" aria-hidden="true" />
@@ -168,5 +164,6 @@ export default async function ParentLoginPage() {
         </p>
       </div>
     </main>
+    </>
   );
 }

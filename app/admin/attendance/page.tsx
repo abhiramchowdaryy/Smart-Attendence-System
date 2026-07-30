@@ -1,7 +1,12 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
 import { Layers, AlertTriangle, Percent, TrendingDown } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { PageSkeleton } from "@/components/page-skeleton";
+import { SectionError } from "@/components/section-error";
+import { PageTitle } from "@/src/page-title";
 import {
   fetchAllAttendance,
   rollupByCourse,
@@ -21,18 +26,34 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Attendance Overview" };
-
 function pctTone(pct: number | null): string {
   if (pct === null) return "bg-muted-foreground/40";
   return pct >= ELIGIBILITY_THRESHOLD ? "bg-status-present" : "bg-status-absent";
 }
 
-export default async function AdminAttendance() {
-  await requireRole(["admin"]);
-  const supabase = await createClient();
+export default function AdminAttendance() {
+  const { profile } = useAuth();
 
-  const rows = await fetchAllAttendance(supabase);
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["admin-attendance", profile?.id],
+    enabled: !!profile,
+    queryFn: async () => {
+      const supabase = createClient();
+      const rows = await fetchAllAttendance(supabase);
+      return { rows };
+    },
+  });
+
+  if (!profile || isLoading) return <PageSkeleton />;
+  if (isError || !data)
+    return (
+      <SectionError
+        error={new Error("Could not load the attendance overview.")}
+        reset={() => refetch()}
+      />
+    );
+
+  const rows = data.rows;
   const rollups = rollupByCourse(rows);
 
   // Institution KPIs.
@@ -73,6 +94,7 @@ export default async function AdminAttendance() {
 
   return (
     <GsapReveal className="space-y-6">
+      <PageTitle title="Attendance Overview" />
       <div>
         <h1 className="text-2xl font-bold">Attendance Overview</h1>
         <p className="text-sm text-muted-foreground">

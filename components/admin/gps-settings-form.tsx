@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle2, LoaderCircle, Save } from "lucide-react";
 import {
   updateGpsSettings,
@@ -14,10 +15,29 @@ import { Label } from "@/components/ui/label";
 const INITIAL: SettingsResult = {};
 
 export function GpsSettingsForm({ settings }: { settings: GpsSettings }) {
-  const [state, action, pending] = useActionState(updateGpsSettings, INITIAL);
+  const qc = useQueryClient();
+  const [state, setState] = useState<SettingsResult>(INITIAL);
+  const [pending, setPending] = useState(false);
+
+  async function action(formData: FormData) {
+    setPending(true);
+    const res = await updateGpsSettings(state, formData);
+    setState(res);
+    if (res.ok) {
+      qc.invalidateQueries({ queryKey: ["admin-settings"] });
+      qc.invalidateQueries({ queryKey: ["mark-attendance"] });
+    }
+    setPending(false);
+  }
 
   return (
-    <form action={action} className="space-y-5">
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        action(new FormData(e.currentTarget));
+      }}
+      className="space-y-5"
+    >
       <div className="grid gap-5 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="accuracy_grace_m">Accuracy grace (metres)</Label>

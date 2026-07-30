@@ -1,10 +1,12 @@
-import Link from "next/link";
+"use client";
+
+import { Link, useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react";
 import { AppNav, type NavItem } from "@/components/app-nav";
 import { PesLogo } from "@/components/pes-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { signOut } from "@/app/(auth)/login/actions";
+import { useAuth } from "@/lib/auth";
 import type { Role } from "@/lib/utils";
 
 const NAV: Record<Role, NavItem[]> = {
@@ -36,7 +38,8 @@ const NAV: Record<Role, NavItem[]> = {
 
 /**
  * Shared authenticated shell: PES-branded top bar, role-scoped nav,
- * theme toggle, sign out. Server component — sign out is a server action.
+ * theme toggle, sign out. Sign out clears the client session then routes to
+ * /login (was a server action in the Next build).
  */
 export function AppShell({
   role,
@@ -47,6 +50,14 @@ export function AppShell({
   userName: string;
   children: React.ReactNode;
 }) {
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
+
+  async function handleSignOut() {
+    await signOut();
+    navigate("/login", { replace: true });
+  }
+
   return (
     <div className="flex min-h-dvh flex-col">
       <a
@@ -58,7 +69,7 @@ export function AppShell({
       <header className="sticky top-0 z-40 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
         <div className="container flex h-14 items-center gap-2 sm:gap-4">
           <Link
-            href={`/${role}/dashboard`}
+            to={`/${role}/dashboard`}
             aria-label="PES Smart Attendance — home"
             className="flex shrink-0 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:gap-3"
           >
@@ -79,11 +90,14 @@ export function AppShell({
           </span>
           <span className="flex shrink-0 items-center">
             <ThemeToggle />
-            <form action={signOut}>
-              <Button variant="ghost" size="icon" aria-label="Sign out">
-                <LogOut className="size-5" aria-hidden="true" />
-              </Button>
-            </form>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Sign out"
+              onClick={handleSignOut}
+            >
+              <LogOut className="size-5" aria-hidden="true" />
+            </Button>
           </span>
         </div>
       </header>
