@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle2, LoaderCircle, Plus } from "lucide-react";
 import {
   upsertCourse,
@@ -28,10 +29,25 @@ export function CourseForm({
     semester: string;
   } | null;
 }) {
-  const [state, action, pending] = useActionState(upsertCourse, INITIAL);
+  const qc = useQueryClient();
+  const [state, setState] = useState<CourseActionState>(INITIAL);
+  const [pending, setPending] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setPending(true);
+    const formData = new FormData(e.currentTarget);
+    const result = await upsertCourse(state, formData);
+    setState(result);
+    setPending(false);
+    if (result.message) {
+      // Mirror the removed revalidatePath("/faculty/courses").
+      qc.invalidateQueries({ queryKey: ["faculty-courses"] });
+    }
+  }
 
   return (
-    <form action={action} key={editing?.code ?? "new"} className="space-y-4">
+    <form onSubmit={handleSubmit} key={editing?.code ?? "new"} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="code">Course code</Label>

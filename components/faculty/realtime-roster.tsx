@@ -1,16 +1,16 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 
 /**
- * Keeps the server-rendered live roster current using Supabase Realtime
- * instead of the old fixed 15 s poll.
+ * Keeps the live roster current using Supabase Realtime instead of the old
+ * fixed 15 s poll.
  *
  * It subscribes to Postgres change events on `attendance` (entries + exits,
  * scoped to this session) and `sessions` (so a close is reflected at once),
- * calling router.refresh() to re-fetch the server component. RLS still
+ * invalidating the faculty-dashboard query to re-fetch the data. RLS still
  * governs the stream — staff read all rows, so faculty receive every mark.
  *
  * A slow fallback poll (default 60 s, vs the previous 15 s) covers the rare
@@ -25,11 +25,11 @@ export function RealtimeRoster({
   sessionId: string;
   fallbackSeconds?: number;
 }) {
-  const router = useRouter();
-  // router identity is stable across renders in the App Router, but capture it
-  // in a ref so the effect can depend only on sessionId (no reconnect churn).
-  const routerRef = useRef(router);
-  routerRef.current = router;
+  const queryClient = useQueryClient();
+  // queryClient identity is stable, but capture it in a ref so the effect can
+  // depend only on sessionId (no reconnect churn).
+  const queryClientRef = useRef(queryClient);
+  queryClientRef.current = queryClient;
 
   useEffect(() => {
     const supabase = createClient();
@@ -37,7 +37,8 @@ export function RealtimeRoster({
     // Guards against a late CLOSED status callback (fired by removeChannel on
     // unmount) re-arming the fallback after cleanup has already cleared it.
     let disposed = false;
-    const refresh = () => routerRef.current.refresh();
+    const refresh = () =>
+      queryClientRef.current.invalidateQueries({ queryKey: ["faculty-dashboard"] });
 
     const startFallback = () => {
       if (disposed) return;
