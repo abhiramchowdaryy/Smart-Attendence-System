@@ -1,14 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AlertCircle, ArrowRight, Loader2, Lock, Mail } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signInAsParent, type AuthFormState } from "../login/actions";
-
-const INITIAL: AuthFormState = {};
+import { useAuth, signInAsParent } from "@/lib/auth";
 
 /** Input with a leading icon — visual anchor without sacrificing labels. */
 function IconInput({
@@ -32,7 +31,28 @@ function IconInput({
  * read-only parent dashboard for that student.
  */
 export function ParentLoginForm() {
-  const [state, action, pending] = useActionState(signInAsParent, INITIAL);
+  const navigate = useNavigate();
+  const { refresh } = useAuth();
+  const [error, setError] = useState<string>();
+  const [pending, setPending] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(undefined);
+    setPending(true);
+    const form = new FormData(e.currentTarget);
+    const res = await signInAsParent(
+      String(form.get("email") ?? ""),
+      String(form.get("password") ?? "")
+    );
+    if (res.error) {
+      setError(res.error);
+      setPending(false);
+      return;
+    }
+    await refresh();
+    navigate("/parent/dashboard", { replace: true });
+  }
 
   return (
     <motion.div
@@ -51,7 +71,7 @@ export function ParentLoginForm() {
         </p>
       </div>
 
-      <form action={action} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email">Student email</Label>
           <IconInput
@@ -78,13 +98,13 @@ export function ParentLoginForm() {
           />
         </div>
 
-        {state.error && (
+        {error && (
           <p
             role="alert"
             className="flex items-start gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
           >
             <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            {state.error}
+            {error}
           </p>
         )}
 
