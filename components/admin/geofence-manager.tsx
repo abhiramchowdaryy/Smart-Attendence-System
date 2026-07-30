@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   CheckCircle2,
@@ -42,12 +43,24 @@ const DEFAULT_CENTER = { lat: 12.9351, lng: 77.5358 };
  * the map.
  */
 export function GeofenceManager({ geofences }: { geofences: GeofenceRow[] }) {
-  const [state, action, pending] = useActionState(createGeofence, INITIAL);
+  const qc = useQueryClient();
+  const [state, setState] = useState<AdminActionState>(INITIAL);
+  const [pending, setPending] = useState(false);
   const [locating, setLocating] = useState(false);
   const [locError, setLocError] = useState<string | null>(null);
   const [delError, setDelError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
+
+  async function action(formData: FormData) {
+    setPending(true);
+    const res = await createGeofence(state, formData);
+    setState(res);
+    if (!res.error) {
+      qc.invalidateQueries({ queryKey: ["admin-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["faculty-dashboard"] });
+    }
+    setPending(false);
+  }
 
   // Controlled so the map, the "use my location" button and the text inputs
   // all share one source of truth for the coordinates.
@@ -87,14 +100,16 @@ export function GeofenceManager({ geofences }: { geofences: GeofenceRow[] }) {
     );
   }
 
-  function remove(id: string) {
+  async function remove(id: string) {
     setDelError(null);
     setDeletingId(id);
-    startTransition(async () => {
-      const res = await deleteGeofence(id);
-      if (res.error) setDelError(res.error);
-      setDeletingId(null);
-    });
+    const res = await deleteGeofence(id);
+    if (res.error) setDelError(res.error);
+    else {
+      qc.invalidateQueries({ queryKey: ["admin-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["faculty-dashboard"] });
+    }
+    setDeletingId(null);
   }
 
   return (
@@ -143,7 +158,13 @@ export function GeofenceManager({ geofences }: { geofences: GeofenceRow[] }) {
       )}
 
       {/* Add new */}
-      <form action={action} className="space-y-4 rounded-md border border-dashed p-4">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          action(new FormData(e.currentTarget));
+        }}
+        className="space-y-4 rounded-md border border-dashed p-4"
+      >
         <p className="text-sm font-medium">Add a classroom</p>
 
         <div className="space-y-2">
