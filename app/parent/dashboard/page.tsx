@@ -1,9 +1,14 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
 import { BookOpenCheck, CalendarDays, ListChecks, Timer } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { requireParentView } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { KpiCard } from "@/components/kpi-card";
 import { StatusPill } from "@/components/status-pill";
+import { PageSkeleton } from "@/components/page-skeleton";
+import { SectionError } from "@/components/section-error";
+import { PageTitle } from "@/src/page-title";
 import { GsapReveal } from "@/components/gsap-reveal";
 import { AttendanceRing } from "@/components/charts/attendance-ring";
 import {
@@ -14,8 +19,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { AttendanceStatus } from "@/lib/utils";
-
-export const metadata: Metadata = { title: "Parent Dashboard" };
 
 interface AttendanceRow {
   id: string;
@@ -34,40 +37,62 @@ interface MarkRow {
   max_score: number;
 }
 
-export default async function ParentDashboard() {
+export default function ParentDashboard() {
   // The signed-in account IS the student — in parent mode we present their
   // own data read-only. RLS "read own" already scopes every query below.
-  const child = await requireParentView();
-  const supabase = await createClient();
+  const { profile: child } = useAuth();
 
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["parent-dashboard", child?.id],
+    enabled: !!child,
+    queryFn: async () => {
+      const supabase = createClient();
+      const since = new Date(
+        Date.now() - 30 * 24 * 60 * 60 * 1000
+      ).toISOString();
 
-  const [{ data: attRows }, { data: markRows }, { count: sessionsHeld }] =
-    await Promise.all([
-      supabase
-        .from("attendance")
-        .select(
-          "id, entry_time, exit_time, duration_min, status, sessions(course)"
-        )
-        .eq("student_id", child.id)
-        .gte("entry_time", since)
-        .order("entry_time", { ascending: false })
-        .returns<AttendanceRow[]>(),
-      supabase
-        .from("marks")
-        .select("id, course, assessment, score, max_score")
-        .eq("student_id", child.id)
-        .order("updated_at", { ascending: false })
-        .returns<MarkRow[]>(),
-      supabase
-        .from("sessions")
-        .select("id", { count: "exact", head: true })
-        .gte("opened_at", since),
-    ]);
+      const [{ data: attRows }, { data: markRows }, { count: sessionsHeld }] =
+        await Promise.all([
+          supabase
+            .from("attendance")
+            .select(
+              "id, entry_time, exit_time, duration_min, status, sessions(course)"
+            )
+            .eq("student_id", child!.id)
+            .gte("entry_time", since)
+            .order("entry_time", { ascending: false })
+            .returns<AttendanceRow[]>(),
+          supabase
+            .from("marks")
+            .select("id, course, assessment, score, max_score")
+            .eq("student_id", child!.id)
+            .order("updated_at", { ascending: false })
+            .returns<MarkRow[]>(),
+          supabase
+            .from("sessions")
+            .select("id", { count: "exact", head: true })
+            .gte("opened_at", since),
+        ]);
+      return {
+        records: attRows ?? [],
+        marks: markRows ?? [],
+        held: sessionsHeld ?? 0,
+      };
+    },
+  });
 
-  const records = attRows ?? [];
-  const marks = markRows ?? [];
-  const held = sessionsHeld ?? 0;
+  if (!child || isLoading) return <PageSkeleton />;
+  if (isError || !data)
+    return (
+      <SectionError
+        error={new Error("Could not load the dashboard.")}
+        reset={() => refetch()}
+      />
+    );
+
+  const records = data.records;
+  const marks = data.marks;
+  const held = data.held;
 
   const attended = records.filter((r) => r.status !== "absent").length;
   const pct = held > 0 ? Math.round((attended / held) * 100) : null;
@@ -92,6 +117,7 @@ export default async function ParentDashboard() {
 
   return (
     <GsapReveal className="space-y-6">
+      <PageTitle title="Parent Dashboard" />
       {/* Child identity header */}
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
