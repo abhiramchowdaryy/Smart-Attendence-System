@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { LoaderCircle, RotateCcw, ScanFace, ShieldCheck } from "lucide-react";
 import { resetFaceEnrollment, setUserRole } from "@/app/admin/dashboard/actions";
 import { Badge } from "@/components/ui/badge";
@@ -40,32 +41,32 @@ export function UsersTable({
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
+  const qc = useQueryClient();
 
-  function changeRole(userId: string, role: Role) {
+  async function changeRole(userId: string, role: Role) {
     setPendingId(userId);
     setError(null);
-    startTransition(async () => {
-      const res = await setUserRole(userId, role);
-      if (res.error) setError(res.error);
-      setPendingId(null);
-    });
+    const res = await setUserRole(userId, role);
+    if (res.error) setError(res.error);
+    else qc.invalidateQueries({ queryKey: ["admin-dashboard"] });
+    setPendingId(null);
   }
 
   // Two-step: clearing a face enrolment is the one action that re-opens the
   // identity anchor, so it asks for confirmation rather than firing on a
   // single stray click.
-  function resetFace(userId: string) {
+  async function resetFace(userId: string) {
     setResettingId(userId);
     setConfirmId(null);
     setError(null);
     setNotice(null);
-    startTransition(async () => {
-      const res = await resetFaceEnrollment(userId);
-      if (res.error) setError(res.error);
-      else setNotice(res.message ?? "Face enrolment reset.");
-      setResettingId(null);
-    });
+    const res = await resetFaceEnrollment(userId);
+    if (res.error) setError(res.error);
+    else {
+      setNotice(res.message ?? "Face enrolment reset.");
+      qc.invalidateQueries({ queryKey: ["admin-dashboard"] });
+    }
+    setResettingId(null);
   }
 
   return (
