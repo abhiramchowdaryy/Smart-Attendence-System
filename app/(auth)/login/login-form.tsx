@@ -1,18 +1,14 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AlertCircle, ArrowRight, Loader2, Lock, Mail } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  signInWithGoogle,
-  signInWithPassword,
-  type AuthFormState,
-} from "./actions";
-
-const INITIAL: AuthFormState = {};
+import { useAuth, roleHome, signInWithGoogle, signInWithPassword } from "@/lib/auth";
+import { resolveOrigin } from "@/lib/origin";
 
 /** Google "G" mark — inline SVG so it needs no network request. */
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -68,14 +64,42 @@ function IconInput({
 }
 
 export function LoginForm() {
-  const [pwState, pwAction, pwPending] = useActionState(
-    signInWithPassword,
-    INITIAL
-  );
-  const [googleState, googleAction, googlePending] = useActionState(
-    signInWithGoogle,
-    INITIAL
-  );
+  const navigate = useNavigate();
+  const { refresh } = useAuth();
+  const [pwError, setPwError] = useState<string>();
+  const [pwPending, setPwPending] = useState(false);
+  const [googleError, setGoogleError] = useState<string>();
+  const [googlePending, setGooglePending] = useState(false);
+
+  async function handlePassword(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setPwError(undefined);
+    setPwPending(true);
+    const form = new FormData(e.currentTarget);
+    const res = await signInWithPassword(
+      String(form.get("email") ?? ""),
+      String(form.get("password") ?? "")
+    );
+    if (res.error) {
+      setPwError(res.error);
+      setPwPending(false);
+      return;
+    }
+    await refresh();
+    navigate(roleHome(res.role ?? "student"), { replace: true });
+  }
+
+  async function handleGoogle(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setGoogleError(undefined);
+    setGooglePending(true);
+    const res = await signInWithGoogle(resolveOrigin());
+    // On success the browser is redirected to Google, so we stay pending.
+    if (res.error) {
+      setGoogleError(res.error);
+      setGooglePending(false);
+    }
+  }
 
   return (
     <motion.div
@@ -94,7 +118,7 @@ export function LoginForm() {
       </div>
 
       {/* Students → college Google account. */}
-      <form action={googleAction}>
+      <form onSubmit={handleGoogle}>
         <Button
           type="submit"
           size="lg"
@@ -119,7 +143,7 @@ export function LoginForm() {
         Students only — use your <span className="font-medium">@pes.edu</span>{" "}
         account.
       </p>
-      {googleState.error && <ErrorAlert message={googleState.error} />}
+      {googleError && <ErrorAlert message={googleError} />}
 
       {/* Divider between student SSO and staff password sign-in. */}
       <div className="flex items-center gap-3" aria-hidden="true">
@@ -130,7 +154,7 @@ export function LoginForm() {
         <span className="h-px flex-1 bg-border" />
       </div>
 
-      <form action={pwAction} className="space-y-4">
+      <form onSubmit={handlePassword} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <IconInput
@@ -157,7 +181,7 @@ export function LoginForm() {
           />
         </div>
 
-        {pwState.error && <ErrorAlert message={pwState.error} />}
+        {pwError && <ErrorAlert message={pwError} />}
 
         <Button
           type="submit"
