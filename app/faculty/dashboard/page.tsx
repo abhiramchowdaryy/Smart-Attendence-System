@@ -1,4 +1,6 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
   CheckCircle2,
@@ -6,8 +8,11 @@ import {
   Radio,
   Users,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { PageSkeleton } from "@/components/page-skeleton";
+import { SectionError } from "@/components/section-error";
+import { PageTitle } from "@/src/page-title";
 import { KpiCard } from "@/components/kpi-card";
 import { StatusPill } from "@/components/status-pill";
 import { GsapReveal } from "@/components/gsap-reveal";
@@ -23,8 +28,6 @@ import {
 } from "@/components/ui/card";
 import { firstRow, startOfToday, type AttendanceStatus } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Faculty Dashboard" };
-
 interface RosterRow {
   id: string;
   entry_time: string;
@@ -34,59 +37,87 @@ interface RosterRow {
   profiles: { full_name: string; roll_no: string | null } | null;
 }
 
-export default async function FacultyDashboard() {
-  const profile = await requireRole(["faculty", "admin"]);
-  const supabase = await createClient();
+export default function FacultyDashboard() {
+  const { profile } = useAuth();
 
-  // The single live session, if any.
-  const { data: openSession } = await supabase
-    .from("sessions")
-    .select("id, course, opened_at, geofences(room_name)")
-    .is("closed_at", null)
-    .order("opened_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["faculty-dashboard", profile?.id],
+    enabled: !!profile,
+    queryFn: async () => {
+      const supabase = createClient();
 
-  // Live roster for the open session.
-  let roster: RosterRow[] = [];
-  if (openSession) {
-    const { data } = await supabase
-      .from("attendance")
-      .select(
-        "id, entry_time, exit_time, status, face_confidence, profiles(full_name, roll_no)"
-      )
-      .eq("session_id", openSession.id)
-      .order("entry_time", { ascending: false })
-      .returns<RosterRow[]>();
-    roster = data ?? [];
-  }
+      // The single live session, if any.
+      const { data: openSession } = await supabase
+        .from("sessions")
+        .select("id, course, opened_at, geofences(room_name)")
+        .is("closed_at", null)
+        .order("opened_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-  // Today's institution-wide stats (staff can read all rows via RLS).
-  const todayStart = startOfToday();
-  const { data: todayRows } = await supabase
-    .from("attendance")
-    .select("id, status")
-    .gte("entry_time", todayStart.toISOString());
+      // Live roster for the open session.
+      let roster: RosterRow[] = [];
+      if (openSession) {
+        const { data: rosterData } = await supabase
+          .from("attendance")
+          .select(
+            "id, entry_time, exit_time, status, face_confidence, profiles(full_name, roll_no)"
+          )
+          .eq("session_id", openSession.id)
+          .order("entry_time", { ascending: false })
+          .returns<RosterRow[]>();
+        roster = rosterData ?? [];
+      }
 
-  const today = todayRows ?? [];
+      // Today's institution-wide stats (staff can read all rows via RLS).
+      const todayStart = startOfToday();
+      const [{ data: todayRows }, { count: sessionsToday }, { data: geofences }] =
+        await Promise.all([
+          supabase
+            .from("attendance")
+            .select("id, status")
+            .gte("entry_time", todayStart.toISOString()),
+          supabase
+            .from("sessions")
+            .select("id", { count: "exact", head: true })
+            .gte("opened_at", todayStart.toISOString()),
+          // Geofences for the open-session form.
+          supabase
+            .from("geofences")
+            .select("id, room_name, radius_m")
+            .order("room_name"),
+        ]);
+
+      return {
+        openSession,
+        roster,
+        todayRows: todayRows ?? [],
+        sessionsToday: sessionsToday ?? 0,
+        geofences: geofences ?? [],
+      };
+    },
+  });
+
+  if (!profile || isLoading) return <PageSkeleton />;
+  if (isError || !data)
+    return (
+      <SectionError
+        error={new Error("Could not load the faculty dashboard.")}
+        reset={() => refetch()}
+      />
+    );
+
+  const { openSession, roster, todayRows, sessionsToday, geofences } = data;
+
+  const today = todayRows;
   const presentToday = today.filter((r) => r.status === "present").length;
   const lateToday = today.filter((r) => r.status === "late").length;
-
-  const { count: sessionsToday } = await supabase
-    .from("sessions")
-    .select("id", { count: "exact", head: true })
-    .gte("opened_at", todayStart.toISOString());
-
-  // Geofences for the open-session form.
-  const { data: geofences } = await supabase
-    .from("geofences")
-    .select("id, room_name, radius_m")
-    .order("room_name");
 
   const fence = openSession ? firstRow(openSession.geofences) : null;
 
   return (
     <GsapReveal className="space-y-6">
+      <PageTitle title="Faculty Dashboard" />
       {/* Keep the roster fresh while a session is live — Supabase Realtime,
           with a slow poll fallback if the socket can't connect. */}
       {openSession && <RealtimeRoster sessionId={openSession.id} />}
