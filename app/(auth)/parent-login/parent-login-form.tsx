@@ -80,7 +80,7 @@ export function ParentLoginForm() {
             name="email"
             type="email"
             autoComplete="email"
-            placeholder="student@pes.edu"
+            placeholder="student@pesu.pes.edu"
             required
           />
         </div>
@@ -133,3 +133,4 @@ export function ParentLoginForm() {
     </motion.div>
   );
 }
+

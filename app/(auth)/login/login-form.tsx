@@ -140,7 +140,7 @@ export function LoginForm() {
         </Button>
       </form>
       <p className="-mt-3 text-center text-xs text-muted-foreground">
-        Students only — use your <span className="font-medium">@pes.edu</span>{" "}
+        Students only — use your <span className="font-medium">@pesu.pes.edu</span>{" "}
         account.
       </p>
       {googleError && <ErrorAlert message={googleError} />}
@@ -163,7 +163,7 @@ export function LoginForm() {
             name="email"
             type="email"
             autoComplete="email"
-            placeholder="you@pes.edu"
+            placeholder="you@pesu.pes.edu"
             required
           />
         </div>
@@ -208,3 +208,4 @@ export function LoginForm() {
     </motion.div>
   );
 }
+

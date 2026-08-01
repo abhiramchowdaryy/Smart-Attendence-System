@@ -167,4 +167,5 @@ Before submitting a reference:
 - [ ] Comments explain _why_, not _what_
 - [ ] Trade-offs mentioned if applicable
 - [ ] Reference links included
-- [ ] `pnpm test` passes
+- [ ] `npm test` passes
+

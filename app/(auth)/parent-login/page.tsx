@@ -92,10 +92,6 @@ export default function ParentLoginPage() {
             </ul>
           </div>
         </div>
-
-        <p className="relative z-10 text-xs text-white/50">
-          Phase-1 · Web Development · Guide: Prof. Niteesh K R
-        </p>
       </aside>
 
       {/* ── Form panel ────────────────────────────────────────────── */}
