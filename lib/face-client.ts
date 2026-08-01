@@ -28,8 +28,8 @@ export async function loadFaceModels(): Promise<FaceApi> {
 export interface FaceReading {
   /** Detection confidence 0..1. */
   score: number;
-  /** 128-d identity descriptor. */
-  descriptor: Float32Array;
+  /** 128-d identity descriptor. Null for landmark-only detections. */
+  descriptor: Float32Array | null;
   /** Six landmark points of each eye (for blink liveness). */
   leftEye: Point[];
   rightEye: Point[];
@@ -38,20 +38,48 @@ export interface FaceReading {
 const toPoints = (pts: { x: number; y: number }[]): Point[] =>
   pts.map((p) => ({ x: p.x, y: p.y }));
 
+function detectorOptions(faceapi: FaceApi) {
+  return new faceapi.TinyFaceDetectorOptions({
+    inputSize: 320,
+    scoreThreshold: 0.4,
+  });
+}
+
+/**
+ * Detect the single most prominent face with landmarks only — no identity
+ * descriptor. This skips the expensive recognition net, so the blink loop
+ * can run several times faster and actually sample the brief closed phase
+ * of a blink. Returns null when no face is found.
+ */
+export async function detectFaceLandmarks(
+  faceapi: FaceApi,
+  video: HTMLVideoElement
+): Promise<FaceReading | null> {
+  const result = await faceapi
+    .detectSingleFace(video, detectorOptions(faceapi))
+    .withFaceLandmarks();
+
+  if (!result) return null;
+
+  return {
+    score: result.detection.score,
+    descriptor: null,
+    leftEye: toPoints(result.landmarks.getLeftEye()),
+    rightEye: toPoints(result.landmarks.getRightEye()),
+  };
+}
+
 /**
  * Detect the single most prominent face with landmarks + descriptor.
- * Returns null when no face is found.
+ * Returns null when no face is found. Heavier than {@link detectFaceLandmarks};
+ * use it only once liveness has passed and identity is needed.
  */
 export async function detectFace(
   faceapi: FaceApi,
   video: HTMLVideoElement
 ): Promise<FaceReading | null> {
-  const options = new faceapi.TinyFaceDetectorOptions({
-    inputSize: 320,
-    scoreThreshold: 0.4,
-  });
   const result = await faceapi
-    .detectSingleFace(video, options)
+    .detectSingleFace(video, detectorOptions(faceapi))
     .withFaceLandmarks()
     .withFaceDescriptor();
 
