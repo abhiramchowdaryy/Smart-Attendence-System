@@ -79,7 +79,11 @@ export interface Point {
   y: number;
 }
 
-/** Below this EAR an eye is considered closed. */
+/**
+ * Below this EAR an eye is unambiguously closed. Kept as a floor for the
+ * adaptive detector below and retained for tests / callers that want a
+ * single absolute reference.
+ */
 export const BLINK_EAR_THRESHOLD = 0.22;
 
 function dist(a: Point, b: Point): number {
@@ -104,4 +108,61 @@ export function eyeAspectRatio(eye: Point[]): number {
 /** Mean EAR across both eyes. */
 export function blinkRatio(left: Point[], right: Point[]): number {
   return (eyeAspectRatio(left) + eyeAspectRatio(right)) / 2;
+}
+
+// ── Adaptive blink detector ──────────────────────────────────────────
+// Fixed EAR thresholds are unreliable: EAR varies a lot with face shape,
+// glasses, and camera angle. A resting EAR that happens to sit between a
+// fixed "open" and "closed" threshold gets stuck and no blink ever counts
+// (the original bug). Instead we track a running "eyes-open" baseline and
+// count a blink when EAR dips a good fraction below it and then recovers,
+// with hysteresis so a single flutter isn't double-counted.
+
+export interface BlinkState {
+  /** Running estimate of the open-eye EAR. 0 until the first sample. */
+  baseline: number;
+  /** Currently inside a closed-eye dip. */
+  closed: boolean;
+  /** Completed blinks (closed → open transitions). */
+  count: number;
+}
+
+/** Fraction of baseline below which the eye counts as closed. */
+export const BLINK_CLOSE_FRACTION = 0.75;
+/** Fraction of baseline above which the eye counts as open again (hysteresis). */
+export const BLINK_OPEN_FRACTION = 0.85;
+/** How fast the baseline is allowed to decay per sample (tracks the upper
+ *  envelope of EAR, so a blink dip can't drag it down). */
+const BASELINE_DECAY = 0.98;
+
+/** A fresh blink-detector state. */
+export function initBlinkState(): BlinkState {
+  return { baseline: 0, closed: false, count: 0 };
+}
+
+/**
+ * Feed one EAR sample; returns the next state. A blink is counted on the
+ * closed→open transition. `baseline` follows the upper envelope of recent
+ * EARs — it snaps up to any larger value and decays slowly — so it reflects
+ * the eyes-open level and a downward dip cannot pull it into the closed band.
+ */
+export function updateBlinkState(state: BlinkState, ear: number): BlinkState {
+  if (!Number.isFinite(ear) || ear <= 0) return state;
+
+  // Seed on the first usable sample (assume eyes open), otherwise track the
+  // upper envelope: jump to a larger EAR immediately, decay slowly.
+  const baseline =
+    state.baseline === 0 ? ear : Math.max(ear, state.baseline * BASELINE_DECAY);
+
+  const closeAt = baseline * BLINK_CLOSE_FRACTION;
+  const openAt = baseline * BLINK_OPEN_FRACTION;
+
+  let { closed, count } = state;
+  if (!closed && ear < closeAt) {
+    closed = true;
+  } else if (closed && ear > openAt) {
+    closed = false;
+    count += 1;
+  }
+  return { baseline, closed, count };
 }
