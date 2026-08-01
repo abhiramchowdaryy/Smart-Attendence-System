@@ -1,5 +1,5 @@
 No,Category,Guideline,Description,Do,Don't,Code Good,Code Bad,Severity,Docs URL
-1,Installation,Add Nuxt UI module,Install and configure Nuxt UI in your Nuxt project,pnpm add @nuxt/ui and add to modules,Manual component imports,"modules: ['@nuxt/ui']","import { UButton } from '@nuxt/ui'",High,https://ui.nuxt.com/docs/getting-started/installation/nuxt
+1,Installation,Add Nuxt UI module,Install and configure Nuxt UI in your Nuxt project,npm add @nuxt/ui and add to modules,Manual component imports,"modules: ['@nuxt/ui']","import { UButton } from '@nuxt/ui'",High,https://ui.nuxt.com/docs/getting-started/installation/nuxt
 2,Installation,Import Tailwind and Nuxt UI CSS,Required CSS imports in main.css file,@import tailwindcss and @import @nuxt/ui,Skip CSS imports,"@import ""tailwindcss""; @import ""@nuxt/ui"";",No CSS imports,High,https://ui.nuxt.com/docs/getting-started/installation/nuxt
 3,Installation,Wrap app with UApp component,UApp provides global configs for Toast Tooltip and overlays,<UApp> wrapper in app.vue,Skip UApp wrapper,<UApp><NuxtPage/></UApp>,<NuxtPage/> without wrapper,High,https://ui.nuxt.com/docs/components/app
 4,Components,Use U prefix for components,All Nuxt UI components use U prefix by default,UButton UInput UModal,Button Input Modal,<UButton>Click</UButton>,<Button>Click</Button>,Medium,https://ui.nuxt.com/docs/getting-started/installation/nuxt
@@ -49,3 +49,4 @@ No,Category,Guideline,Description,Do,Don't,Code Good,Code Bad,Severity,Docs URL
 48,Links,Use external prop for outside links,Explicitly mark external links,target="_blank" with external URLs,Forget rel="noopener","<UButton to=""https://example.com"" target=""_blank"">","<UButton href=""https://..."">",Low,https://ui.nuxt.com/docs/components/link
 49,Loading,Use loadingAuto on buttons,Automatic loading state from @click promise,loadingAuto prop on UButton,Manual loading state,"<UButton loadingAuto @click=""async () => await save()"">","<UButton :loading=""isLoading"" @click=""save"">",Low,https://ui.nuxt.com/docs/components/button
 50,Loading,Use UForm loadingAuto,Auto-disable form during submit,loadingAuto on UForm (default true),Manual form disabled state,"<UForm @submit=""handleSubmit"">","<UForm :disabled=""isSubmitting"">",Low,https://ui.nuxt.com/docs/components/form
+

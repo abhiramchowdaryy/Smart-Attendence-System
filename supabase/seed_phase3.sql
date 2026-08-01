@@ -3,7 +3,7 @@
 -- rich student details for the Results + Profile pages.
 -- Run AFTER seed_phase2.sql. Idempotent (upserts throughout).
 --
--- The first student (student@pes.edu) gets the hero numbers; every other
+-- The first student (student@pesu.pesu.pes.edu) gets the hero numbers; every other
 -- student is shifted down slightly so faculty views show variety.
 -- ⚠ All values are demo data.
 -- ════════════════════════════════════════════════════════════════════
@@ -12,7 +12,7 @@
 with s as (
   select p.id,
          row_number() over (
-           order by (case when u.email = 'student@pes.edu' then 0 else 1 end),
+           order by (case when u.email = 'student@pesu.pesu.pes.edu' then 0 else 1 end),
                     p.created_at
          ) as r
   from public.profiles p
@@ -62,7 +62,7 @@ select
   92.80, 88.40, 'Ramesh Kumar', '+91 98450 11223', 'Lakshmi Devi', '+91 98450 44556',
   '#42, 4th Cross, Jayanagar', 'Bengaluru', 'Karnataka', '560041', '4821'
 from auth.users u
-where u.email = 'student@pes.edu'
+where u.email = 'student@pesu.pesu.pes.edu'
 on conflict (student_id) do update set
   pesu_id = excluded.pesu_id, branch = excluded.branch, section = excluded.section,
   dob = excluded.dob, blood_group = excluded.blood_group,
@@ -71,3 +71,4 @@ on conflict (student_id) do update set
   mother_name = excluded.mother_name, mother_phone = excluded.mother_phone,
   address = excluded.address, city = excluded.city, state = excluded.state,
   pincode = excluded.pincode, aadhaar_last4 = excluded.aadhaar_last4;
+

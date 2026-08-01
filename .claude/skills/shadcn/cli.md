@@ -2,7 +2,7 @@
 
 Configuration is read from `components.json`.
 
-> **IMPORTANT:** Always run commands using the project's package runner: `npx shadcn@latest`, `pnpm dlx shadcn@latest`, or `bunx --bun shadcn@latest`. Check `packageManager` from project context to choose the right one. Examples below use `npx shadcn@latest` but substitute the correct runner for the project.
+> **IMPORTANT:** Always run commands using the project's package runner: `npx shadcn@latest`, `npm dlx shadcn@latest`, or `bunx --bun shadcn@latest`. Check `packageManager` from project context to choose the right one. Examples below use `npx shadcn@latest` but substitute the correct runner for the project.
 
 > **IMPORTANT:** Only use the flags documented below. Do not invent or guess flags — if a flag isn't listed here, it doesn't exist. The CLI auto-detects the package manager from the project's lockfile; there is no `--package-manager` flag.
 
@@ -199,7 +199,7 @@ Displays project info and `components.json` configuration. Run this first to dis
 | `tailwindConfigFile` | `string`  | Path to the Tailwind config file                                   |
 | `tailwindCssFile`    | `string`  | Path to the global CSS file                                        |
 | `aliasPrefix`        | `string`  | Import alias prefix (e.g. `@`, `~`, `@/`)                          |
-| `packageManager`     | `string`  | Detected package manager (`npm`, `pnpm`, `yarn`, `bun`)            |
+| `packageManager`     | `string`  | Detected package manager (`npm`, `npm`, `yarn`, `bun`)            |
 
 **Components.json fields:**
 
@@ -274,3 +274,4 @@ Ask the user first: **overwrite**, **merge**, or **skip** existing components?
 - **Skip** → `npx shadcn@latest init --preset <code> --force --no-reinstall`. Only updates config and CSS variables, leaves existing components as-is.
 
 Always run preset commands inside the user's project directory. `apply` only works in an existing project with a `components.json` file. The CLI automatically preserves the current base (`base` vs `radix`) from `components.json`. If you must use a scratch/temp directory (e.g. for `--dry-run` comparisons), pass `--base <current-base>` explicitly — preset codes do not encode the base.
+

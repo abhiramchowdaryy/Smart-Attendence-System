@@ -26,12 +26,12 @@ export type AttendanceStatus = "present" | "late" | "absent" | "partial";
 
 /**
  * College Google Workspace domain. Students sign in with their institutional
- * Google account (`someone@pes.edu`); the OAuth callback rejects any address
+ * Google account (`someone@pesu.pes.edu`); the OAuth callback rejects any address
  * outside this domain. Also passed to Google as the `hd` hint so the account
  * chooser prefers college accounts. Override with VITE_COLLEGE_DOMAIN.
  */
 export const COLLEGE_EMAIL_DOMAIN =
-  import.meta.env.VITE_COLLEGE_DOMAIN?.trim().toLowerCase() || "pes.edu";
+  import.meta.env.VITE_COLLEGE_DOMAIN?.trim().toLowerCase() || "pesu.pes.edu";
 
 /** True when `email` belongs to the college Google Workspace domain. */
 export function isCollegeEmail(email: string | null | undefined): boolean {
@@ -67,3 +67,4 @@ export function startOfToday(): Date {
   d.setHours(0, 0, 0, 0);
   return d;
 }
+

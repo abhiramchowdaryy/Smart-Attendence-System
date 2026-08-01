@@ -3,7 +3,7 @@
 --
 -- Prerequisite: create at least one user first
 --   Supabase Dashboard → Authentication → Users → "Add user"
---   (e.g. student@pes.edu / a password; "Auto Confirm User" ON)
+--   (e.g. student@pesu.pesu.pes.edu / a password; "Auto Confirm User" ON)
 -- The signup trigger creates their profile automatically.
 --
 -- ⚠ Replace the lat/lng below with YOUR current location before the
@@ -35,4 +35,5 @@ where roll_no is null;
 
 -- 4) To promote a user to faculty or admin (needed for Phase-2 UIs):
 -- update public.profiles set role = 'admin'
--- where id = (select id from auth.users where email = 'you@pes.edu');
+-- where id = (select id from auth.users where email = 'you@pesu.pesu.pes.edu');
+

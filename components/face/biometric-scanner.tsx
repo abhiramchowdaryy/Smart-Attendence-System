@@ -123,8 +123,8 @@ export function BiometricScanner({
      *  camera frame is captured — the CSS mirror is display-only. */
     function captureFrame(video: HTMLVideoElement): string | null {
       if (!captureImageRef.current) return null;
-      const w = video.videoWidth;
-      const h = video.videoHeight;
+      const w = video.videoWidth || video.clientWidth || 640;
+      const h = video.videoHeight || video.clientHeight || 480;
       if (!w || !h) return null;
       try {
         if (!captureCanvas) captureCanvas = document.createElement("canvas");
