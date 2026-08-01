@@ -12,17 +12,28 @@ import {
 } from "lucide-react";
 import { cn, FACE_CONFIDENCE_MIN } from "@/lib/utils";
 import {
-  BLINK_EAR_THRESHOLD,
   blinkRatio,
   euclideanDistance,
+  initBlinkState,
   isFaceMatch,
   matchConfidence,
   serializeDescriptor,
+  updateBlinkState,
+  type BlinkState,
 } from "@/lib/face";
-import { loadFaceModels, detectFace } from "@/lib/face-client";
+import {
+  detectFace,
+  detectFaceLandmarks,
+  loadFaceModels,
+  type FaceReading,
+} from "@/lib/face-client";
 
-/** EAR above this = eye open (hysteresis above the closed threshold). */
-const OPEN_EAR = 0.28;
+/** Blinks required to satisfy liveness. */
+const BLINKS_REQUIRED = 1;
+/** Fast cadence while only landmarks are needed — tight enough to sample the
+ *  brief closed phase of a blink. */
+const BLINK_INTERVAL_MS = 120;
+/** Slower cadence once we're computing the full identity descriptor. */
 const DETECT_INTERVAL_MS = 350;
 
 export type ScanPhase =
@@ -84,7 +95,7 @@ export function BiometricScanner({
   onStatus?: (status: ScanStatus) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const blink = useRef({ sawOpen: false, sawClosed: false, done: false });
+  const blink = useRef<BlinkState>(initBlinkState());
   const [status, setStatus] = useState<ScanStatus>(IDLE);
 
   // Keep the latest callback without restarting the camera effect.
@@ -155,23 +166,30 @@ export function BiometricScanner({
       publish({ ...IDLE, phase: "searching" });
 
       // Self-scheduling loop rather than setInterval. A single detection
-      // pass (detector + landmarks + descriptor) can exceed the interval on
-      // a mid-range phone; with setInterval those passes overlap, queue up,
-      // and pin the main thread — the classic symptom is a scanner that
-      // gets progressively jankier the longer it runs and never recovers.
-      // Scheduling the next tick only after the previous one settles keeps
-      // CPU bounded no matter how slow an individual pass is.
+      // pass can exceed the interval on a mid-range phone; with setInterval
+      // those passes overlap, queue up, and pin the main thread — the classic
+      // symptom is a scanner that gets progressively jankier and never
+      // recovers. Scheduling the next tick only after the previous one settles
+      // keeps CPU bounded no matter how slow an individual pass is.
+      //
+      // Two-phase detection: until the blink is confirmed we run landmarks
+      // only (cheap) on a tight cadence so the ~150ms closed phase of a blink
+      // is actually sampled; once live we switch to the full descriptor pass.
       const tick = async () => {
         if (cancelled) return;
         const video = videoRef.current;
         if (!video || video.readyState < 2) {
-          timer = setTimeout(tick, DETECT_INTERVAL_MS);
+          timer = setTimeout(tick, BLINK_INTERVAL_MS);
           return;
         }
 
-        let reading: Awaited<ReturnType<typeof detectFace>> = null;
+        const needIdentity = blink.current.count >= BLINKS_REQUIRED;
+
+        let reading: FaceReading | null = null;
         try {
-          reading = await detectFace(faceapi, video);
+          reading = needIdentity
+            ? await detectFace(faceapi, video)
+            : await detectFaceLandmarks(faceapi, video);
         } catch {
           // A transient decode/inference failure should not kill the loop;
           // treat it as "no face this frame" and keep scanning.
@@ -180,12 +198,18 @@ export function BiometricScanner({
         if (cancelled) return;
 
         publishReading(reading);
-        if (!cancelled) timer = setTimeout(tick, DETECT_INTERVAL_MS);
+
+        // Re-read after publishReading, which may have just completed the blink.
+        const delay =
+          blink.current.count >= BLINKS_REQUIRED
+            ? DETECT_INTERVAL_MS
+            : BLINK_INTERVAL_MS;
+        if (!cancelled) timer = setTimeout(tick, delay);
       };
 
-      function publishReading(reading: Awaited<ReturnType<typeof detectFace>>) {
+      function publishReading(reading: FaceReading | null) {
         if (!reading) {
-          blink.current = { sawOpen: false, sawClosed: false, done: false };
+          blink.current = initBlinkState();
           publish({
             phase: "searching",
             score: 0,
@@ -198,22 +222,32 @@ export function BiometricScanner({
           return;
         }
 
-        // ── Blink liveness state machine ──────────────────────────
+        // ── Blink liveness (adaptive, per-face baseline) ──────────
         const ear = blinkRatio(reading.leftEye, reading.rightEye);
-        const b = blink.current;
-        if (ear > OPEN_EAR) {
-          b.sawOpen = true;
-          if (b.sawClosed) b.done = true;
-        } else if (b.sawOpen && ear < BLINK_EAR_THRESHOLD) {
-          b.sawClosed = true;
-        }
-        const liveness = b.done;
+        blink.current = updateBlinkState(blink.current, ear);
+        const liveness = blink.current.count >= BLINKS_REQUIRED;
 
         if (!liveness) {
           publish({
             phase: "blink",
             score: reading.score,
             liveness: false,
+            distance: null,
+            matched: null,
+            descriptor: null,
+            imageDataUrl: null,
+          });
+          return;
+        }
+
+        // Liveness just passed. The frame that completed the blink was a
+        // landmark-only pass, so it has no descriptor yet — hold one tick for
+        // the full detector to produce identity.
+        if (!reading.descriptor) {
+          publish({
+            phase: "blink",
+            score: reading.score,
+            liveness: true,
             distance: null,
             matched: null,
             descriptor: null,
@@ -252,7 +286,7 @@ export function BiometricScanner({
             matched,
             descriptor: serialized,
             // Grab the still only on an accepting frame — no point encoding a
-            // JPEG every 350ms tick.
+            // JPEG every tick.
             imageDataUrl: ready && video ? captureFrame(video) : null,
           });
           return;
