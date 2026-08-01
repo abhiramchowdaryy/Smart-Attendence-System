@@ -1,12 +1,12 @@
 /**
  * Creates confirmed demo users for local testing / the Phase-1 demo:
  *
- *   student@pes.edu  / Pes@12345   (role: student)
- *   faculty@pes.edu  / Pes@12345   (role: faculty)
- *   admin@pes.edu    / Pes@12345   (role: admin)
+ *   student@pesu.pesu.pes.edu  / Pes@12345   (role: student)
+ *   faculty@pesu.pesu.pes.edu  / Pes@12345   (role: faculty)
+ *   admin@pesu.pesu.pes.edu    / Pes@12345   (role: admin)
  *
  * Parent sign-in needs no separate account: a parent signs in on
- * /parent-login with the student's own email + password (student@pes.edu).
+ * /parent-login with the student's own email + password (student@pesu.pesu.pes.edu).
  *
  * Uses the service-role key from .env.local (server-side only — never
  * ship this key to the browser). Safe to re-run: existing users are
@@ -30,11 +30,11 @@ function loadEnvLocal() {
 }
 
 const env = loadEnvLocal();
-const url = env.NEXT_PUBLIC_SUPABASE_URL;
+const url = env.VITE_SUPABASE_URL ?? env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!url || !serviceKey) {
-  console.error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local");
+  console.error("Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local");
   process.exit(1);
 }
 
@@ -56,9 +56,9 @@ const admin = createClient(url, serviceKey, {
 });
 
 const USERS = [
-  { email: "student@pes.edu", fullName: "Demo Student", role: "student", rollNo: "PES1UG24CA001" },
-  { email: "faculty@pes.edu", fullName: "Demo Faculty", role: "faculty", rollNo: null },
-  { email: "admin@pes.edu", fullName: "Demo Admin", role: "admin", rollNo: null },
+  { email: "student@pesu.pesu.pes.edu", fullName: "Demo Student", role: "student", rollNo: "PES1UG24CA001" },
+  { email: "faculty@pesu.pesu.pes.edu", fullName: "Demo Faculty", role: "faculty", rollNo: null },
+  { email: "admin@pesu.pesu.pes.edu", fullName: "Demo Admin", role: "admin", rollNo: null },
 ];
 const PASSWORD = "Pes@12345";
 
@@ -104,3 +104,4 @@ for (const u of USERS) {
 }
 
 console.log(`\nDone. Password for all demo users: ${PASSWORD}`);
+

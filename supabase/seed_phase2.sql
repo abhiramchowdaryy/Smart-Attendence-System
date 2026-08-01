@@ -65,11 +65,11 @@ cross join generate_series(1, c.conducted) as g(n);
 --    (attended - (r-1)*3) of the ranked sessions; the rest are absent
 --    (no row). Within attended: present, then late, then partial.
 with student_rank as (
-  -- The primary demo login (student@pes.edu) is rank 1 → exact target
+  -- The primary demo login (student@pesu.pesu.pes.edu) is rank 1 → exact target
   -- numbers (26/34 hero); other students get the (r-1)*3 reduction.
   select p.id,
          row_number() over (
-           order by (case when u.email = 'student@pes.edu' then 0 else 1 end),
+           order by (case when u.email = 'student@pesu.pesu.pes.edu' then 0 else 1 end),
                     p.created_at
          ) as r
   from public.profiles p
@@ -115,3 +115,4 @@ select p.full_name, v.course_code, v.conducted,
 from public.attendance_summary v
 join public.profiles p on p.id = v.student_id
 order by p.full_name, v.course_code;
+

@@ -1,49 +1,32 @@
 # PES Smart Attendance
 
 Smart Attendance Management System with Facial Recognition and Performance
-Analytics — PES University. Phase 1 (MVP) + Phase 2 (attendance engine,
-face identity + liveness, GPS policy, results, rich profile).
+Analytics for PES University.
 
 **Stack:** React 19 + Vite 6 · React Router 6 · TypeScript · Tailwind CSS ·
 Supabase (Postgres + PostGIS + Auth + RLS + Realtime + Edge Functions) ·
 @vladmandic/face-api (browser face detection) · Geolocation + PostGIS
-`ST_DWithin` geofencing (Haversine fallback) · Twilio parent SMS ·
-OpenStreetMap map-pin editor · CSV / PDF export · Framer Motion ·
-TanStack Query + Zustand. All free-tier.
+`ST_DWithin` geofencing (Haversine fallback) · OpenStreetMap map-pin editor ·
+CSV / PDF export · Framer Motion · TanStack Query + Zustand. All free-tier.
 
-## What works in this MVP slice
+## What this project does
 
-| Flow | Status |
-|------|--------|
-| Student Google sign-in (college `@pes.edu` account) + faculty/admin email-password, role-based redirect | ✅ |
-| Role-guarded sections (student / faculty / admin) + Postgres RLS | ✅ |
-| **Parent login** (`/parent-login`) — read-only view of a child's attendance & marks, using the student's own login | ✅ |
-| Student dashboard — live KPIs from Supabase (today, %, avg duration) | ✅ |
-| **Mark Attendance** — live camera face detection + geofence chip → entry/exit with timestamps, duration, late/partial status | ✅ |
-| Faculty dashboard — open/close sessions, live roster (15s polling), today's KPIs | ✅ |
-| Admin dashboard — users & roles table, geofence CRUD, KPIs, 7-day status chart | ✅ |
-| Marks entry (`/faculty/marks`) + attendance ↔ performance correlation (`/faculty/performance`) | ✅ |
-| **My Attendance** — per-subject attended/conducted, official + weighted %, 75% eligibility badges, semester filter | ✅ Phase 2 |
-| Faculty course report + admin institution rollup (worst-first, shortfall flags) | ✅ Phase 2 |
-| Courses & enrolment management (`/faculty/courses`) — catalogue CRUD + roster editor | ✅ Phase 2 |
-| **Face enrolment + identity verification** — 128-d descriptor, server-side match, blink liveness | ✅ Phase 2 |
-| **GPS settings** (`/admin/settings`) — geofence grace, late window, high-accuracy toggle | ✅ Phase 2 |
-| **Results** — ISA/ESA marks, letter grades, SGPA/CGPA dials | ✅ Phase 2 |
-| **Profile** — personal/family/address details, masked Aadhaar (last 4 only) | ✅ Phase 2 |
-| **DeepFace server verification** — optional FastAPI service; live *image* re-embedded server-side (`FACE_SERVICE_URL`) | ✅ Phase 2+ (opt-in) |
-| **PostGIS `ST_DWithin` geofencing** — authoritative containment in the DB via a `geofence_check()` RPC; TS Haversine fallback | ✅ Phase 2+ |
-| **Supabase Realtime roster** — faculty live roster updates via Postgres change events (no more 15s polling) | ✅ Phase 2+ |
-| **Map-pin geofence editor** — dependency-free OpenStreetMap picker with a to-scale radius circle | ✅ Phase 2+ |
-| **CSV / PDF export** — attendance & results (Blob CSV + print-to-PDF) | ✅ Phase 2+ |
-| **Twilio parent SMS** — Supabase Edge Function wired to attendance-shortfall flags (`profiles.parent_phone`; DLT-aware) | ✅ Phase 2+ (deploy + secrets to send) |
+A React + Vite attendance system backed by Supabase. It supports:
+
+- Student Google login for the college domain `@pesu.pes.edu`.
+- Faculty/admin email-password login with role-based routing.
+- Face enrolment with blink liveness and live attendance verification.
+- Geofence-based attendance marking and student/faculty/admin dashboards.
+- Parent view via the student's own login on `/parent-login`.
+- Supabase Postgres, RLS, Realtime, Edge Functions, and optional server-side face embedding.
 
 ## Setup (≈10 minutes)
 
 ### 1. Install dependencies
 
 ```bash
-pnpm install
-pnpm run download-models   # detector + landmarks + recognition nets → public/models
+npm install
+npm run download-models   # detector + landmarks + recognition nets → public/models
 ```
 
 ### 2. Create the free Supabase project
@@ -86,7 +69,7 @@ account, promote it in the SQL Editor:
 
 ```sql
 update public.profiles set role = 'faculty' where id =
-  (select id from auth.users where email = 'faculty@pes.edu');
+  (select id from auth.users where email = 'faculty@pesu.pes.edu');
 ```
 
 > **Parents need no account of their own.** A parent signs in at
@@ -101,7 +84,7 @@ projects). It bypasses RLS, so keep it out of git and never prefix it with
 `VITE_` (it must stay out of the browser bundle). Then:
 
 ```bash
-pnpm run seed-users   # student@pes.edu / faculty@pes.edu / admin@pes.edu — Pes@12345
+npm run seed-users   # student@pesu.pes.edu / faculty@pesu.pes.edu / admin@pesu.pes.edu — Pes@12345
 ```
 
 ### 5. Enable Google sign-in (students)
@@ -119,7 +102,7 @@ provider on once per project:
    `http://localhost:3000/auth/callback` (and your deployed
    `https://…/auth/callback`) to **Redirect URLs**.
 
-Only `@pes.edu` accounts are accepted, and Google sign-in creates/uses
+Only `@pesu.pes.edu` accounts are accepted, and Google sign-in creates/uses
 **student** accounts only — the `/callback` handler rejects any other domain or
 role. Faculty and admin keep signing in with email + password (step 4). To use a
 different Workspace domain, set `VITE_COLLEGE_DOMAIN` in `.env.local`.
@@ -127,7 +110,7 @@ different Workspace domain, set `VITE_COLLEGE_DOMAIN` in `.env.local`.
 ### 6. Run
 
 ```bash
-pnpm run dev
+npm run dev
 ```
 
 The Vite dev server runs on `http://localhost:3000`.
@@ -135,6 +118,18 @@ The Vite dev server runs on `http://localhost:3000`.
 Keep this terminal visible. If the dev server stops, an already-open tab
 still renders the page but every sign-in fails with a misleading
 `TypeError: Failed to fetch` — that just means the POST hit a dead port.
+
+### Face enrollment troubleshooting
+
+- If the camera view shows **Face models missing**, run `npm run download-models`
+  and reload.
+- Allow camera access in the browser and keep your face centered in the
+  oval.
+- Blink once clearly, then hold still until the scanner turns green.
+- If `Save my face` stays disabled, keep the frame steady and wait for the
+  `Ready` status; the button only activates after a high-quality live frame.
+- If saving still fails, open the browser console and check that your user has
+  a `profiles` row in Supabase with `face_embedding` available.
 
 Sign in with the user you created → student dashboard. First visit
 **Enrol Face** (blink once, hold still, save). Then **Mark Attendance**:
@@ -154,11 +149,11 @@ remembered by a `localStorage` flag (`pes-parent-view`) and cleared on sign-out.
 
 ## Deploy (free)
 
-This is a static Vite SPA (`pnpm run build` → `dist/`).
+This is a static Vite SPA (`npm run build` → `dist/`).
 
 1. Push this folder to a GitHub repo.
 2. [vercel.com](https://vercel.com) (or Netlify/Cloudflare Pages) → Import repo.
-   Framework preset **Vite**; build command `pnpm run build`; output `dist`.
+   Framework preset **Vite**; build command `npm run build`; output `dist`.
    Add the two `VITE_SUPABASE_*` env vars (and `VITE_COLLEGE_DOMAIN` if you use
    a non-default domain) → Deploy.
 3. Add a SPA rewrite so client-side routes resolve (all paths → `/index.html`):
@@ -270,32 +265,6 @@ in headless CI.
 5. Students re-enrol once so a server embedding is captured; from then on the
    authoritative check runs on server-side pixels.
 
-## Roadmap
-
-Phase 2 has landed: the 75% attendance engine, face enrolment + server-side
-identity match with blink liveness, admin GPS policy, results (grades,
-SGPA/CGPA), rich profile, and course/enrolment management — see the table
-above.
-
-The Phase 2+ items are now implemented too:
-
-- **Twilio parent SMS** via a Supabase Edge Function
-  (`supabase/functions/notify-shortfall`), wired to the attendance-shortfall
-  flags and targeting `profiles.parent_phone`. Deploy the function and set the
-  Twilio secrets to send for real; without them the flow runs as a logged dry
-  run. SMS to Indian numbers needs a TRAI/DLT sender + template — see the
-  function README.
-- **Supabase Realtime** roster (`components/faculty/realtime-roster.tsx`)
-  replaces the old 15s poll; a slow poll remains only as a fallback.
-- **Map-pin geofence editor** (`components/admin/map-picker.tsx`) — a
-  dependency-free OpenStreetMap picker alongside type-in and "use my location".
-- **PostGIS `ST_DWithin`** geofencing (migration 0007 + `lib/geofence.ts`),
-  with the Haversine path kept as a non-breaking fallback.
-- **CSV / PDF export** (`lib/export.ts` + `components/export-menu.tsx`) on the
-  attendance and results tables.
-
-Deploying the edge function and applying migrations 0007–0009 activates the
-server-side pieces; everything degrades gracefully if they are skipped.
-
----
 Team: Preethika.C · Preethi · Nesara · Monisha — Guide: Prof. Niteesh K R
+
+
