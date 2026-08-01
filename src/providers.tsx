@@ -1,13 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HelmetProvider } from "react-helmet-async";
 import { useState } from "react";
 import { AuthProvider } from "@/lib/auth";
 
 /**
  * App-wide client providers. TanStack Query backs the dashboards and realtime
  * views (Supabase Realtime events invalidate queries); AuthProvider replaces
- * the SSR session/middleware; Helmet manages per-page <title> (was the Next
- * Metadata API).
+ * the SSR session/middleware. Per-page <title> is handled by <PageTitle>, which
+ * relies on React 19's native document-metadata hoisting (was the Next Metadata
+ * API, then react-helmet-async).
  */
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -18,10 +18,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <HelmetProvider>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>{children}</AuthProvider>
-      </QueryClientProvider>
-    </HelmetProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>{children}</AuthProvider>
+    </QueryClientProvider>
   );
 }
