@@ -9,6 +9,7 @@
     "build": "tsc -b --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "test": "node --test lib/*.test.ts",
     "download-models": "node scripts/download-models.mjs",
     "seed-users": "node scripts/create-demo-users.mjs"
   },
